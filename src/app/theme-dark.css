@@ -1,0 +1,169 @@
+/*
+ * ---------------------------------------------------------------------------
+ * Black theme (toggle). `html.dark-mode` flips the neutral ramp back to a true
+ * black scale and swaps the accents for tones that stay readable on black.
+ * The selector list covers the root and the teacher shell (nested scope).
+ * ---------------------------------------------------------------------------
+ */
+html.dark-mode.theme-student,
+html.dark-mode .theme-student,
+html.dark-mode .theme-teacher {
+  --app-bg: #000000;
+  --surface: #0e0e11;
+  --ink: #f4f4f5;
+  --ink-muted: #a1a1aa;
+  --line: #1f1f24;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.6), 0 10px 28px -14px rgba(0, 0, 0, 0.9);
+  --shadow-pop: 0 16px 40px -14px rgba(0, 0, 0, 0.95);
+  color-scheme: dark;
+
+  --color-white: #f4f4f5;
+  --color-slate-50: #fafafa;
+  --color-slate-100: #f4f4f5;
+  --color-slate-200: #e4e4e7;
+  --color-slate-300: #d4d4d8;
+  --color-slate-400: #a1a1aa;
+  --color-slate-500: #71717a;
+  --color-slate-600: #52525b;
+  --color-slate-700: #2e2e34;
+  --color-slate-800: #1f1f24;
+  --color-slate-900: #0e0e11;
+  --color-slate-950: #000000;
+  --color-zinc-50: #fafafa;
+  --color-zinc-100: #f4f4f5;
+  --color-zinc-200: #e4e4e7;
+  --color-zinc-300: #d4d4d8;
+  --color-zinc-400: #a1a1aa;
+  --color-zinc-500: #71717a;
+  --color-zinc-600: #52525b;
+  --color-zinc-700: #2e2e34;
+  --color-zinc-800: #1f1f24;
+  --color-zinc-900: #0e0e11;
+  --color-zinc-950: #000000;
+  --color-gray-50: #fafafa;
+  --color-gray-100: #f4f4f5;
+  --color-gray-200: #e4e4e7;
+  --color-gray-300: #d4d4d8;
+  --color-gray-400: #a1a1aa;
+  --color-gray-500: #71717a;
+  --color-gray-600: #52525b;
+  --color-gray-700: #2e2e34;
+  --color-gray-800: #1f1f24;
+  --color-gray-900: #0e0e11;
+  --color-gray-950: #000000;
+
+  /* status tones: light variants for dark backgrounds */
+  --color-rose-300: #fda4af;
+  --color-rose-400: #fb7185;
+  --color-red-300: #fca5a5;
+  --color-red-400: #f87171;
+  --color-amber-300: #fcd34d;
+  --color-amber-400: #fbbf24;
+  --color-yellow-300: #fde047;
+  --color-yellow-400: #facc15;
+  --color-orange-400: #fb923c;
+  --color-green-300: #86efac;
+  --color-green-400: #4ade80;
+  --color-cyan-300: #67e8f9;
+  --color-cyan-400: #22d3ee;
+  --color-sky-300: #7dd3fc;
+  --color-sky-400: #38bdf8;
+  --color-blue-300: #93c5fd;
+  --color-blue-400: #60a5fa;
+  --color-teal-300: #5eead4;
+  --color-teal-400: #2dd4bf;
+  --color-rose-950: #4c0519;
+  --color-red-950: #450a0a;
+  --color-amber-950: #451a03;
+  --color-yellow-950: #422006;
+  --color-orange-950: #431407;
+  --color-green-950: #052e16;
+  --color-cyan-950: #083344;
+  --color-sky-950: #082f49;
+  --color-blue-950: #172554;
+  --color-teal-950: #042f2e;
+}
+
+/* Student on black: coral glows */
+html.dark-mode.theme-student,
+html.dark-mode .theme-student {
+  --brand-soft: #2a140d;
+  --brand-accent: #fb8a72;
+  --ring: rgba(240, 100, 73, 0.3);
+
+  --color-lime-200: #ffb4a0;
+  --color-lime-300: #ff8a70;
+  --color-lime-400: #f06449;
+  --color-lime-500: #e04e33;
+  --color-lime-600: #c93e25;
+  --color-lime-950: #2a140d;
+  --color-emerald-300: #ff8a70;
+  --color-emerald-400: #f06449;
+  --color-emerald-500: #f06449;
+  --color-emerald-600: #c93e25;
+  --color-emerald-950: #2a140d;
+  --color-purple-100: #ffe0d1;
+  --color-purple-200: #fdba9a;
+  --color-purple-300: #ff8a70;
+  --color-purple-400: #f06449;
+  --color-purple-500: #f06449;
+  --color-purple-600: #e04e33;
+  --color-purple-700: #5b2a1e;
+  --color-purple-800: #3f1d14;
+  --color-purple-900: #2a140d;
+  --color-purple-950: #2a140d;
+  --color-indigo-500: #f58467;
+  --color-indigo-600: #e04e33;
+}
+
+/* Teacher on black: luminous indigo */
+html.dark-mode .theme-teacher {
+  --brand: #6366f1;
+  --brand-soft: #1a1940;
+  --brand-accent: #818cf8;
+  --ring: rgba(99, 102, 241, 0.35);
+
+  --color-lime-200: #c7d2fe;
+  --color-lime-300: #a5b4fc;
+  --color-lime-400: #6366f1;
+  --color-lime-500: #4f46e5;
+  --color-lime-600: #4338ca;
+  --color-lime-950: #1a1940;
+  --color-emerald-300: #a5b4fc;
+  --color-emerald-400: #818cf8;
+  --color-emerald-500: #6366f1;
+  --color-emerald-600: #4f46e5;
+  --color-emerald-950: #1a1940;
+  --color-purple-100: #e0e7ff;
+  --color-purple-200: #c7d2fe;
+  --color-purple-300: #a5b4fc;
+  --color-purple-400: #818cf8;
+  --color-purple-500: #6366f1;
+  --color-purple-600: #4f46e5;
+  --color-purple-700: #312e81;
+  --color-purple-800: #25235f;
+  --color-purple-900: #1a1940;
+  --color-purple-950: #1a1940;
+  --color-indigo-500: #818cf8;
+  --color-indigo-600: #6366f1;
+}
+
+html.dark-mode body {
+  background-color: #000000;
+}
+html.dark-mode ::-webkit-scrollbar-thumb {
+  background: #2e2e34;
+}
+html.dark-mode ::selection {
+  background: rgba(129, 140, 248, 0.35);
+  color: #fff;
+}
+/* soft inner highlight on cards instead of a drop shadow */
+html.dark-mode :is(.theme-student, .theme-teacher) [class*="rounded-2xl"][class*="border"],
+html.dark-mode :is(.theme-student, .theme-teacher) [class*="rounded-3xl"][class*="border"] {
+  box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+/* modal scrims */
+html.dark-mode :is(.theme-student, .theme-teacher) [class*="bg-black/"] {
+  background-color: rgba(0, 0, 0, 0.75);
+}

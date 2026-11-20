@@ -1,0 +1,344 @@
+@import "tailwindcss";
+@import "./theme-dark.css";
+
+/*
+ * ---------------------------------------------------------------------------
+ * Courts After Dark - design system
+ * ---------------------------------------------------------------------------
+ * The components were written against a dark palette (slate/zinc + lime/purple
+ * accents). Tailwind v4 exposes every palette color as a CSS variable, so the
+ * whole app is re-themed here by remapping those variables:
+ *
+ *   .theme-student  Royal Purple (#7C3AED) - default, also home/auth/admin
+ *   .theme-teacher  Deep Teal    (#0F766E) - faculty portal
+ *
+ * Neutral scales are inverted (950 = page, 900 = card, 800 = border ...) and
+ * `white` becomes the ink color, so existing `bg-slate-900 text-white` markup
+ * renders as a white card with dark text. No component logic is touched.
+ */
+
+:root {
+  --app-bg: #fff8f5;
+  --surface: #ffffff;
+  --ink: #292524;
+  --ink-muted: #57534e;
+  --line: #f2e4dc;
+  --brand: #f06449;
+  --brand-soft: #ffe0d1;
+  --brand-accent: #fdba9a;
+  --ring: rgba(240, 100, 73, 0.18);
+  --shadow-card: 0 1px 2px rgba(120, 53, 15, 0.04), 0 10px 28px -14px rgba(240, 100, 73, 0.2);
+  --shadow-pop: 0 16px 40px -14px rgba(240, 100, 73, 0.32);
+}
+
+/* ---- Shared: readable status colors on light ------------------------------- */
+.theme-student,
+.theme-teacher {
+  --color-rose-300: #be123c;
+  --color-rose-400: #e11d48;
+  --color-red-300: #b91c1c;
+  --color-red-400: #dc2626;
+  --color-amber-300: #b45309;
+  --color-amber-400: #d97706;
+  --color-yellow-300: #a16207;
+  --color-yellow-400: #ca8a04;
+  --color-orange-400: #ea580c;
+  --color-green-300: #15803d;
+  --color-green-400: #16a34a;
+  --color-cyan-300: #0e7490;
+  --color-cyan-400: #0891b2;
+  --color-sky-300: #0369a1;
+  --color-sky-400: #0284c7;
+  --color-blue-300: #1d4ed8;
+  --color-blue-400: #2563eb;
+  --color-teal-300: #0f766e;
+  --color-teal-400: #0d9488;
+
+  --color-rose-950: #ffe4e6;
+  --color-red-950: #fee2e2;
+  --color-amber-950: #fef3c7;
+  --color-yellow-950: #fef9c3;
+  --color-orange-950: #ffedd5;
+  --color-green-950: #dcfce7;
+  --color-cyan-950: #cffafe;
+  --color-sky-950: #e0f2fe;
+  --color-blue-950: #dbeafe;
+  --color-teal-950: #ccfbf1;
+
+  color-scheme: light;
+}
+
+/*
+ * Neutral scale is inverted: 950 = page, 900 = card, 800 = hairline border,
+ * 100-200 = headline ink. slate / zinc / gray all share the same ramp.
+ */
+
+/* ---- Student: Coral & Peach ------------------------------------------------ */
+.theme-student {
+  --app-bg: #fff8f5;
+  --ink: #292524;
+  --ink-muted: #57534e;
+  --line: #f2e4dc;
+  --brand: #f06449;
+  --brand-soft: #ffe0d1;
+  --brand-accent: #fdba9a;
+  --ring: rgba(240, 100, 73, 0.18);
+  --shadow-card: 0 1px 2px rgba(120, 53, 15, 0.04), 0 10px 28px -14px rgba(240, 100, 73, 0.2);
+  --shadow-pop: 0 16px 40px -14px rgba(240, 100, 73, 0.32);
+
+  --color-white: #292524;
+  --color-slate-50: #1c1917;
+  --color-slate-100: #292524;
+  --color-slate-200: #292524;
+  --color-slate-300: #44403c;
+  --color-slate-400: #57534e;
+  --color-slate-500: #78716c;
+  --color-slate-600: #a8a29e;
+  --color-slate-700: #e7d5cc;
+  --color-slate-800: #f2e4dc;
+  --color-slate-900: #ffffff;
+  --color-slate-950: #fff8f5;
+  --color-zinc-50: #1c1917;
+  --color-zinc-100: #292524;
+  --color-zinc-200: #292524;
+  --color-zinc-300: #44403c;
+  --color-zinc-400: #57534e;
+  --color-zinc-500: #78716c;
+  --color-zinc-600: #a8a29e;
+  --color-zinc-700: #e7d5cc;
+  --color-zinc-800: #f2e4dc;
+  --color-zinc-900: #ffffff;
+  --color-zinc-950: #fff8f5;
+  --color-gray-50: #1c1917;
+  --color-gray-100: #292524;
+  --color-gray-200: #292524;
+  --color-gray-300: #44403c;
+  --color-gray-400: #57534e;
+  --color-gray-500: #78716c;
+  --color-gray-600: #a8a29e;
+  --color-gray-700: #e7d5cc;
+  --color-gray-800: #f2e4dc;
+  --color-gray-900: #ffffff;
+  --color-gray-950: #fff8f5;
+
+  --color-lime-200: #b8351d;
+  --color-lime-300: #d9482f;
+  --color-lime-400: #f06449;
+  --color-lime-500: #e04e33;
+  --color-lime-600: #c93e25;
+  --color-lime-950: #ffe0d1;
+
+  --color-emerald-300: #d9482f;
+  --color-emerald-400: #f06449;
+  --color-emerald-500: #f06449;
+  --color-emerald-600: #c93e25;
+  --color-emerald-950: #ffe0d1;
+
+  --color-purple-100: #7c2d12;
+  --color-purple-200: #9a3412;
+  --color-purple-300: #d9482f;
+  --color-purple-400: #f06449;
+  --color-purple-500: #f06449;
+  --color-purple-600: #e04e33;
+  --color-purple-700: #fdba9a;
+  --color-purple-800: #fed4bf;
+  --color-purple-900: #ffe0d1;
+  --color-purple-950: #ffe0d1;
+  --color-indigo-500: #f58467;
+  --color-indigo-600: #e04e33;
+}
+
+/* ---- Teacher: Indigo & Sky ------------------------------------------------- */
+.theme-teacher {
+  --app-bg: #f7f8ff;
+  --ink: #1e1b4b;
+  --ink-muted: #4b4d86;
+  --line: #e4e7f8;
+  --brand: #4338ca;
+  --brand-soft: #e0e7ff;
+  --brand-accent: #818cf8;
+  --ring: rgba(67, 56, 202, 0.18);
+  --shadow-card: 0 1px 2px rgba(30, 27, 75, 0.04), 0 10px 28px -14px rgba(67, 56, 202, 0.22);
+  --shadow-pop: 0 16px 40px -14px rgba(67, 56, 202, 0.34);
+
+  --color-white: #1e1b4b;
+  --color-slate-50: #14123a;
+  --color-slate-100: #1e1b4b;
+  --color-slate-200: #1e1b4b;
+  --color-slate-300: #3b3a78;
+  --color-slate-400: #4b4d86;
+  --color-slate-500: #6b6e9e;
+  --color-slate-600: #a5a8cf;
+  --color-slate-700: #d5d9f2;
+  --color-slate-800: #e4e7f8;
+  --color-slate-900: #ffffff;
+  --color-slate-950: #f7f8ff;
+  --color-zinc-50: #14123a;
+  --color-zinc-100: #1e1b4b;
+  --color-zinc-200: #1e1b4b;
+  --color-zinc-300: #3b3a78;
+  --color-zinc-400: #4b4d86;
+  --color-zinc-500: #6b6e9e;
+  --color-zinc-600: #a5a8cf;
+  --color-zinc-700: #d5d9f2;
+  --color-zinc-800: #e4e7f8;
+  --color-zinc-900: #ffffff;
+  --color-zinc-950: #f7f8ff;
+  --color-gray-50: #14123a;
+  --color-gray-100: #1e1b4b;
+  --color-gray-200: #1e1b4b;
+  --color-gray-300: #3b3a78;
+  --color-gray-400: #4b4d86;
+  --color-gray-500: #6b6e9e;
+  --color-gray-600: #a5a8cf;
+  --color-gray-700: #d5d9f2;
+  --color-gray-800: #e4e7f8;
+  --color-gray-900: #ffffff;
+  --color-gray-950: #f7f8ff;
+
+  --color-lime-200: #312e81;
+  --color-lime-300: #3730a3;
+  --color-lime-400: #4338ca;
+  --color-lime-500: #3730a3;
+  --color-lime-600: #312e81;
+  --color-lime-950: #e0e7ff;
+
+  --color-emerald-300: #3730a3;
+  --color-emerald-400: #4338ca;
+  --color-emerald-500: #4338ca;
+  --color-emerald-600: #3730a3;
+  --color-emerald-950: #e0e7ff;
+
+  --color-purple-100: #1e1b4b;
+  --color-purple-200: #312e81;
+  --color-purple-300: #3730a3;
+  --color-purple-400: #4338ca;
+  --color-purple-500: #4338ca;
+  --color-purple-600: #3730a3;
+  --color-purple-700: #a5b4fc;
+  --color-purple-800: #c7d2fe;
+  --color-purple-900: #e0e7ff;
+  --color-purple-950: #e0e7ff;
+  --color-indigo-500: #818cf8;
+  --color-indigo-600: #4338ca;
+}
+
+/* ---- Base ------------------------------------------------------------------ */
+body {
+  background-color: var(--app-bg);
+  color: var(--ink);
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand-accent);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--brand-accent);
+  opacity: 0.6;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Tailwind v4 inlines `white`, so it cannot be remapped through a variable. */
+:is(.theme-student, .theme-teacher) .text-white,
+:is(.theme-student, .theme-teacher) .hover\:text-white:hover,
+:is(.theme-student, .theme-teacher) .group:hover .group-hover\:text-white {
+  color: var(--ink);
+}
+
+/* ---- Text on solid brand/status fills must stay white ---------------------- */
+/* `~=` matches the exact class token only (bg-lime-400), never tints (bg-lime-400/10)
+   or variants (hover:bg-lime-400). */
+:is(.theme-student, .theme-teacher) :is([class~="bg-rose-400"], [class~="bg-rose-500"], [class~="bg-rose-600"], [class~="bg-rose-700"], [class~="bg-red-400"], [class~="bg-red-500"], [class~="bg-red-600"], [class~="bg-red-700"], [class~="bg-amber-400"], [class~="bg-amber-500"], [class~="bg-amber-600"], [class~="bg-amber-700"], [class~="bg-sky-400"], [class~="bg-sky-500"], [class~="bg-sky-600"], [class~="bg-sky-700"], [class~="bg-blue-400"], [class~="bg-blue-500"], [class~="bg-blue-600"], [class~="bg-blue-700"], [class~="bg-cyan-400"], [class~="bg-cyan-500"], [class~="bg-cyan-600"], [class~="bg-cyan-700"], [class~="bg-emerald-400"], [class~="bg-emerald-500"], [class~="bg-emerald-600"], [class~="bg-emerald-700"], [class~="bg-lime-400"], [class~="bg-lime-500"], [class~="bg-lime-600"], [class~="bg-lime-700"], [class~="bg-purple-400"], [class~="bg-purple-500"], [class~="bg-purple-600"], [class~="bg-purple-700"], [class~="bg-indigo-400"], [class~="bg-indigo-500"], [class~="bg-indigo-600"], [class~="bg-indigo-700"], [class~="bg-green-400"], [class~="bg-green-500"], [class~="bg-green-600"], [class~="bg-green-700"], [class~="from-purple-400"], [class~="from-purple-500"], [class~="from-purple-600"], [class~="from-purple-700"], [class~="from-lime-400"], [class~="from-lime-500"], [class~="from-lime-600"], [class~="from-lime-700"], [class~="from-emerald-400"], [class~="from-emerald-500"], [class~="from-emerald-600"], [class~="from-emerald-700"]) {
+  &.text-white,
+  & .text-white {
+    color: #ffffff;
+  }
+}
+
+/* Tinted chips (bg-x/10 .. /20) keep dark ink, not white */
+:is(.theme-student, .theme-teacher) :is([class*="/10"], [class*="/15"], [class*="/20"]).text-white {
+  color: var(--ink);
+}
+
+/* ---- Polish: cards, controls, motion -------------------------------------- */
+:is(.theme-student, .theme-teacher) [class*="rounded-2xl"][class*="border"],
+:is(.theme-student, .theme-teacher) [class*="rounded-3xl"][class*="border"] {
+  box-shadow: var(--shadow-card);
+}
+
+:is(.theme-student, .theme-teacher) :is(a, button) {
+  transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+  transition-duration: 160ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+:is(.theme-student, .theme-teacher) button:not(:disabled):active {
+  transform: translateY(0.5px) scale(0.99);
+}
+
+:is(.theme-student, .theme-teacher) :is(a, div)[class*="hover:border"]:hover {
+  box-shadow: var(--shadow-pop);
+  transform: translateY(-1px);
+}
+
+:is(.theme-student, .theme-teacher) :is(input, select, textarea) {
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.theme-student :is(input, select, textarea):focus,
+.theme-teacher :is(input, select, textarea):focus {
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+/* Staggered entrance for dashboard sections */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-rise {
+  animation: rise-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.animate-float {
+  animation: float-y 5s ease-in-out infinite;
+}
+
+/* Modal scrims: soften the pure black overlay */
+:is(.theme-student, .theme-teacher) [class*="bg-black/"] {
+  background-color: rgba(15, 23, 42, 0.55);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

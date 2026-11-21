@@ -54,7 +54,12 @@ interface EligibleReviewRecord {
 
 interface ReviewRecord {
   _id: string;
-  [key: string]: unknown;
+  facility?: { name?: string };
+  rating: number;
+  title?: string;
+  comment: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  moderationReason?: string;
 }
 
 interface ApiBookingRecord {

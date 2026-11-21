@@ -185,7 +185,7 @@ export default function TeacherEventsClient({
     try {
       const payload = {
         ...formData,
-        status: publishImmediately ? "PUBLISHED" : "DRAFT",
+        isDraft: !publishImmediately,
         startAt: new Date(formData.startAt).toISOString(),
         endAt: new Date(formData.endAt).toISOString(),
         registrationStartAt: new Date(
@@ -202,7 +202,10 @@ export default function TeacherEventsClient({
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.message || "Failed to create event");
+        const details = Array.isArray(data.errors)
+          ? data.errors.map((issue: { message?: string }) => issue.message).filter(Boolean).join("; ")
+          : "";
+        throw new Error(details || data.message || "Failed to create event");
       }
 
       setShowCreateModal(false);
@@ -650,8 +653,6 @@ export default function TeacherEventsClient({
                       <option value="FOOTBALL">Football</option>
                       <option value="CRICKET">Cricket</option>
                       <option value="TENNIS">Tennis</option>
-                      <option value="VOLLEYBALL">Volleyball</option>
-                      <option value="TABLE_TENNIS">Table Tennis</option>
                     </select>
                   </div>
 
@@ -688,6 +689,7 @@ export default function TeacherEventsClient({
                     }
                     className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-slate-800 text-slate-100 focus:outline-none focus:border-purple-500"
                   >
+                    <option value="">-- Select a facility --</option>
                     {facilities.map((f) => (
                       <option key={f._id} value={f._id}>
                         {f.name} ({f.sportType})

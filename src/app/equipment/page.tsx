@@ -110,7 +110,7 @@ export default function EquipmentPage() {
         const [catRes, myRes, bookingsRes] = await Promise.all([
           fetch("/api/equipment?limit=100"),
           fetch("/api/equipment/my"),
-          fetch("/api/bookings/my?filter=UPCOMING&limit=50"),
+          fetch("/api/bookings/my?filter=ALL&limit=50"),
         ]);
 
         if (!catRes.ok || !myRes.ok) {
@@ -126,9 +126,53 @@ export default function EquipmentPage() {
 
           if (bookingsRes.ok) {
             const bookingsData = await bookingsRes.json();
+            const now = Date.now();
             const confirmed = (bookingsData.bookings || []).filter(
-              (b: ConfirmedBooking) => b.status === "CONFIRMED"
+              (b: ConfirmedBooking & { endAt: string }) =>
+                b.status === "CONFIRMED" &&
+                new Date(b.endAt).getTime() >= now
             );
+
+            try {
+              const demoBookings = JSON.parse(
+                window.localStorage.getItem("demo-facility-my-bookings") || "[]"
+              ) as Array<{
+                id: string;
+                facilityId: string;
+                facilityName: string;
+                sportType: string;
+                bookingDate: string;
+                startAt: string;
+                endAt: string;
+                status: "CONFIRMED";
+              }>;
+
+              const mappedDemoBookings = demoBookings
+                .filter((booking) => new Date(booking.endAt).getTime() >= now)
+                .map((booking) => ({
+                  _id: booking.id,
+                  facility: {
+                    _id: booking.facilityId,
+                    name: booking.facilityName,
+                    sportType: booking.sportType,
+                  },
+                  startAt: booking.startAt,
+                  endAt: booking.endAt,
+                  status: booking.status,
+                }));
+
+              const existingIds = new Set(
+                confirmed.map((booking: ConfirmedBooking) => booking._id)
+              );
+              confirmed.push(
+                ...mappedDemoBookings.filter(
+                  (booking) => !existingIds.has(booking._id)
+                )
+              );
+            } catch {
+              // Keep database bookings if demo browser storage is unavailable.
+            }
+
             setBookings(confirmed);
           }
         }

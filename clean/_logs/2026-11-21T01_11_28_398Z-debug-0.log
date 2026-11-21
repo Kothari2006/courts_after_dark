@@ -5,11 +5,11 @@
 4 silly config load:file:C:\Users\Dell\Desktop\Nexo\.npmrc
 5 silly config load:file:C:\Users\Dell\.npmrc
 6 silly config load:file:C:\Users\Dell\AppData\Roaming\npm\etc\npmrc
-7 verbose title npm run lint src/components/dashboard/FacilityAvailabilityView.tsx
-8 verbose argv "run" "lint" "--" "src/components/dashboard/FacilityAvailabilityView.tsx"
-9 verbose logfile logs-max:10 dir:C:\Users\Dell\Desktop\Nexo\clean\_logs\2026-11-21T00_12_12_523Z-
-10 verbose logfile C:\Users\Dell\Desktop\Nexo\clean\_logs\2026-11-21T00_12_12_523Z-debug-0.log
-11 silly logfile start cleaning logs, removing 1 files
+7 verbose title npm run lint src/app/equipment/page.tsx src/services/equipment.service.ts
+8 verbose argv "run" "lint" "--" "src/app/equipment/page.tsx" "src/services/equipment.service.ts"
+9 verbose logfile logs-max:10 dir:C:\Users\Dell\Desktop\Nexo\clean\_logs\2026-11-21T01_11_28_398Z-
+10 verbose logfile C:\Users\Dell\Desktop\Nexo\clean\_logs\2026-11-21T01_11_28_398Z-debug-0.log
+11 silly logfile start cleaning logs, removing 2 files
 12 silly logfile done cleaning log files
 13 verbose cwd C:\Users\Dell\Desktop\Nexo
 14 verbose os Windows_NT 10.0.26300

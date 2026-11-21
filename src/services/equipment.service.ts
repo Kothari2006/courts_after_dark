@@ -304,6 +304,9 @@ export async function requestEquipment({
   if (returnDate <= now) {
     throw new Error("RETURN_TIME_IN_PAST");
   }
+  if (returnDate > booking.endAt) {
+    throw new Error("INVALID_RETURN_TIME");
+  }
 
   // 2. Validate requested equipment items
   const validatedItems: Array<{

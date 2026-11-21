@@ -119,7 +119,7 @@ export default function TeacherDashboardClient({
       const params = new URLSearchParams();
       if (activitySearch) params.set("search", activitySearch);
       if (activityFilterStatus !== "ALL") params.set("status", activityFilterStatus);
-      if (activityFilterMine) params.set("mine", "true");
+      if (activityFilterMine || activeTab === "attendance") params.set("mine", "true");
 
       const res = await fetch(`/api/activities?${params.toString()}`);
       const data = await res.json();
@@ -129,7 +129,7 @@ export default function TeacherDashboardClient({
     } finally {
       setActivitiesLoading(false);
     }
-  }, [activitySearch, activityFilterStatus, activityFilterMine]);
+  }, [activitySearch, activityFilterStatus, activityFilterMine, activeTab]);
 
   useEffect(() => {
     if (activeTab === "activities" || activeTab === "attendance") {
@@ -224,7 +224,58 @@ export default function TeacherDashboardClient({
 
       const res = await fetch(`/api/teacher/bookings?${params.toString()}`);
       const data = await res.json();
-      if (res.ok) setStudentBookings(data.bookings || []);
+      if (res.ok) {
+        let bookings = data.bookings || [];
+
+        try {
+          const demoBookings = JSON.parse(
+            window.localStorage.getItem("demo-facility-my-bookings") || "[]"
+          ) as Array<{
+            id: string;
+            facilityId: string;
+            facilityName: string;
+            sportType: string;
+            location: string;
+            bookingDate: string;
+            startTime: string;
+            endTime: string;
+            startAt: string;
+            endAt: string;
+            status: "CONFIRMED";
+            bookingType: "REGULAR" | "PRIME_TIME";
+          }>;
+
+          const mappedDemoBookings = demoBookings.map((booking) => ({
+            _id: booking.id,
+            user: { name: "Demo Student", email: "demo@student.local", role: "STUDENT" },
+            facility: {
+              _id: booking.facilityId,
+              name: booking.facilityName,
+              sportType: booking.sportType,
+              location: booking.location,
+            },
+            bookingDate: booking.bookingDate,
+            startTime: booking.startTime,
+            endTime: booking.endTime,
+            startAt: booking.startAt,
+            endAt: booking.endAt,
+            status: booking.status,
+            bookingType: booking.bookingType,
+          }));
+
+          const existingIds = new Set(
+            bookings.map((booking: { _id: string }) => booking._id)
+          );
+          bookings = [
+            ...bookings,
+            ...mappedDemoBookings.filter((booking) => !existingIds.has(booking._id)),
+          ];
+        } catch {
+          // Keep database bookings if browser demo storage is unavailable.
+        }
+
+        setStudentBookings(bookings);
+      }
     } catch {
       // ignore
     } finally {
@@ -235,6 +286,29 @@ export default function TeacherDashboardClient({
   useEffect(() => {
     if (activeTab === "bookings") fetchStudentBookings();
   }, [activeTab, fetchStudentBookings]);
+
+  const handleBookingAttendance = async (
+    bookingId: string,
+    attendanceStatus: "CHECKED_IN" | "NO_SHOW"
+  ) => {
+    if (bookingId.startsWith("demo-")) {
+      alert("Demo bookings are local previews. Attendance is available for database bookings.");
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/teacher/bookings/${bookingId}/attendance`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ attendanceStatus }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to update attendance");
+      await fetchStudentBookings();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Error updating attendance");
+    }
+  };
 
   // ==========================================
   // TAB 4: ATTENDANCE STATE
@@ -872,12 +946,29 @@ export default function TeacherDashboardClient({
                             </span>
                           </td>
                           <td className="p-4 text-right">
-                            <button
-                              onClick={() => setSelectedBookingDetails(b)}
-                              className="px-2.5 py-1.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 font-semibold inline-flex items-center gap-1.5"
-                            >
-                              <Eye className="h-3.5 w-3.5" /> View
-                            </button>
+                            {b.status === "CONFIRMED" && !String(b._id).startsWith("demo-") ? (
+                              <div className="flex justify-end gap-1.5">
+                                <button
+                                  onClick={() => handleBookingAttendance(b._id, "CHECKED_IN")}
+                                  className="px-2.5 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-semibold"
+                                >
+                                  Check In
+                                </button>
+                                <button
+                                  onClick={() => handleBookingAttendance(b._id, "NO_SHOW")}
+                                  className="px-2.5 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-semibold"
+                                >
+                                  No Show
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setSelectedBookingDetails(b)}
+                                className="px-2.5 py-1.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 font-semibold inline-flex items-center gap-1.5"
+                              >
+                                <Eye className="h-3.5 w-3.5" /> View
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))

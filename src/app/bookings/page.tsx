@@ -18,8 +18,6 @@ import {
   Clock,
   MapPin,
   Star,
-  CheckCircle2,
-  MessageSquare,
 } from "lucide-react";
 import ReviewModal from "@/components/reviews/ReviewModal";
 import { cn } from "@/lib/utils";
@@ -44,6 +42,38 @@ interface WaitlistRecord {
   position: number;
   status: "WAITING" | "PROMOTED" | "CANCELLED" | "EXPIRED";
   createdAt: string;
+}
+
+interface EligibleReviewRecord {
+  _id: string;
+  facility?: { name?: string; sportType?: string };
+  bookingDate: string;
+  startTime: string;
+  endTime: string;
+}
+
+interface ReviewRecord {
+  _id: string;
+  [key: string]: unknown;
+}
+
+interface ApiBookingRecord {
+  _id: string;
+  facility?: {
+    name?: string;
+    sportType?: string;
+    location?: string;
+  };
+  bookingDate: string;
+  startTime: string;
+  endTime: string;
+  startAt: string;
+  endAt: string;
+  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "REJECTED";
+  bookingType: "REGULAR" | "PRIME_TIME";
+  attendanceStatus?: "PENDING" | "CHECKED_IN" | "NO_SHOW";
+  cancellationReason?: string;
+  cancelledAt?: string;
 }
 
 type BookingTab = "ALL" | "UPCOMING" | "COMPLETED" | "CANCELLED" | "WAITLIST" | "REVIEWS";
@@ -91,8 +121,8 @@ function BookingsContent() {
 
   // Review state
   const [reviewModalBooking, setReviewModalBooking] = useState<{ id: string; facilityName: string } | null>(null);
-  const [eligibleReviewBookings, setEligibleReviewBookings] = useState<any[]>([]);
-  const [myReviews, setMyReviews] = useState<any[]>([]);
+  const [eligibleReviewBookings, setEligibleReviewBookings] = useState<EligibleReviewRecord[]>([]);
+  const [myReviews, setMyReviews] = useState<ReviewRecord[]>([]);
 
   // Cancellation Modal state
   const [cancellingBooking, setCancellingBooking] = useState<BookingItem | null>(null);
@@ -126,7 +156,51 @@ function BookingsContent() {
           const data = await res.json();
           if (!res.ok) throw new Error(data.message || "Failed to load waiting list entries");
           if (isMounted) {
-            setWaitlistEntries(data.entries || []);
+            let combinedEntries: WaitlistRecord[] = data.entries || [];
+            try {
+              const demoEntries = JSON.parse(
+                window.localStorage.getItem("demo-facility-my-waitlists") || "[]"
+              ) as Array<{
+                id: string;
+                facilityId: string;
+                facilityName: string;
+                sportType: string;
+                location: string;
+                requestedDate: string;
+                startAt: string;
+                endAt: string;
+                position: number;
+                status: "WAITING";
+                createdAt: string;
+              }>;
+
+              combinedEntries = [
+                ...combinedEntries,
+                ...demoEntries
+                  .filter(
+                    (entry) =>
+                      !combinedEntries.some((existing) => existing._id === entry.id)
+                  )
+                  .map((entry) => ({
+                    _id: entry.id,
+                    facility: {
+                      _id: entry.facilityId,
+                      name: entry.facilityName,
+                      sportType: entry.sportType,
+                      location: entry.location,
+                    },
+                    requestedDate: entry.requestedDate,
+                    startAt: entry.startAt,
+                    endAt: entry.endAt,
+                    position: entry.position,
+                    status: entry.status,
+                    createdAt: entry.createdAt,
+                  })),
+              ];
+            } catch {
+              // Keep database waitlist entries if browser storage is unavailable or malformed.
+            }
+            setWaitlistEntries(combinedEntries);
           }
         } else {
           const res = await fetch(`/api/bookings/my?filter=${activeTab}&limit=50`);
@@ -137,8 +211,7 @@ function BookingsContent() {
           }
 
           const now = Date.now();
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const mappedBookings: BookingItem[] = (data.bookings || []).map((b: any) => {
+          const mappedBookings: BookingItem[] = (data.bookings || []).map((b: ApiBookingRecord) => {
             const d = new Date(b.bookingDate);
             const formattedDate = !isNaN(d.getTime())
               ? d.toLocaleDateString("en-US", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })
@@ -169,7 +242,71 @@ function BookingsContent() {
           });
 
           if (isMounted) {
-            setBookings(mappedBookings);
+            let combinedBookings = mappedBookings;
+
+            if (activeTab === "ALL" || activeTab === "UPCOMING") {
+              try {
+                const storedDemoBookings = JSON.parse(
+                  window.localStorage.getItem("demo-facility-my-bookings") || "[]"
+                ) as Array<{
+                  id: string;
+                  facilityName: string;
+                  sportType: string;
+                  location: string;
+                  bookingDate: string;
+                  startTime: string;
+                  endTime: string;
+                  startAt: string;
+                  endAt: string;
+                  status: "CONFIRMED";
+                  bookingType: "REGULAR" | "PRIME_TIME";
+                }>;
+
+                const mappedDemoBookings: BookingItem[] = storedDemoBookings
+                  .filter((booking) => {
+                    if (activeTab === "UPCOMING") {
+                      return new Date(booking.startAt).getTime() >= now;
+                    }
+                    return true;
+                  })
+                  .map((booking) => {
+                    const date = new Date(`${booking.bookingDate}T${booking.startTime}:00`);
+                    const formattedDate = date.toLocaleDateString("en-US", {
+                      weekday: "short",
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    });
+
+                    return {
+                      id: booking.id,
+                      facilityName: booking.facilityName,
+                      sportType: booking.sportType,
+                      location: booking.location,
+                      bookingDate: formattedDate,
+                      startTime: booking.startTime,
+                      endTime: booking.endTime,
+                      startAt: booking.startAt,
+                      endAt: booking.endAt,
+                      status: booking.status,
+                      bookingType: booking.bookingType,
+                      attendanceStatus: "PENDING",
+                      canCancel: new Date(booking.startAt).getTime() - now >= 2 * 60 * 60 * 1000,
+                    };
+                  });
+
+                combinedBookings = [
+                  ...mappedBookings,
+                  ...mappedDemoBookings.filter(
+                    (demoBooking) => !mappedBookings.some((booking) => booking.id === demoBooking.id)
+                  ),
+                ];
+              } catch {
+                // Keep database bookings if browser storage is unavailable or malformed.
+              }
+            }
+
+            setBookings(combinedBookings);
             if (data.quota) {
               setQuota(data.quota);
             }
@@ -207,6 +344,39 @@ function BookingsContent() {
     setCancellationError(null);
 
     try {
+      if (cancellingBooking.id.startsWith("demo-")) {
+        const bookingsKey = "demo-facility-my-bookings";
+        const demoBookings = JSON.parse(
+          window.localStorage.getItem(bookingsKey) || "[]"
+        ) as Array<{
+          id: string;
+          facilityId: string;
+          bookingDate: string;
+          startTime: string;
+        }>;
+        const cancelledDemo = demoBookings.find(
+          (booking) => booking.id === cancellingBooking.id
+        );
+
+        window.localStorage.setItem(
+          bookingsKey,
+          JSON.stringify(demoBookings.filter((booking) => booking.id !== cancellingBooking.id))
+        );
+
+        if (cancelledDemo) {
+          const slotKey = `demo-facility-bookings:${cancelledDemo.facilityId}`;
+          const reservedSlots = new Set(
+            JSON.parse(window.localStorage.getItem(slotKey) || "[]") as string[]
+          );
+          reservedSlots.delete(`${cancelledDemo.bookingDate}|${cancelledDemo.startTime}`);
+          window.localStorage.setItem(slotKey, JSON.stringify(Array.from(reservedSlots)));
+        }
+
+        setCancellingBooking(null);
+        setRefreshTrigger((prev) => prev + 1);
+        return;
+      }
+
       const res = await fetch(`/api/bookings/${cancellingBooking.id}/cancel`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -232,6 +402,19 @@ function BookingsContent() {
   const handleLeaveWaitlist = async (waitlistId: string) => {
     setLeavingWaitlistId(waitlistId);
     try {
+      if (waitlistId.startsWith("demo-waitlist-")) {
+        const waitlistKey = "demo-facility-my-waitlists";
+        const demoEntries = JSON.parse(
+          window.localStorage.getItem(waitlistKey) || "[]"
+        ) as Array<{ id: string }>;
+        window.localStorage.setItem(
+          waitlistKey,
+          JSON.stringify(demoEntries.filter((entry) => entry.id !== waitlistId))
+        );
+        setRefreshTrigger((prev) => prev + 1);
+        return;
+      }
+
       const res = await fetch(`/api/waitlist/${waitlistId}`, {
         method: "DELETE",
       });

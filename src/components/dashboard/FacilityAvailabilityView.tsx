@@ -49,6 +49,7 @@ interface FacilityAvailabilityViewProps {
   isDemo?: boolean;
   demoName?: string;
   demoSportType?: string;
+  demoLocation?: string;
   demoOperatingHours?: { open: string; close: string };
   demoSlotDuration?: number;
 }
@@ -58,6 +59,7 @@ export default function FacilityAvailabilityView({
   isDemo = false,
   demoName,
   demoSportType,
+  demoLocation,
   demoOperatingHours,
   demoSlotDuration = 60,
 }: FacilityAvailabilityViewProps) {
@@ -87,6 +89,24 @@ export default function FacilityAvailabilityView({
   const [waitlistError, setWaitlistError] = useState<string | null>(null);
   const [waitlistSuccess, setWaitlistSuccess] = useState<boolean>(false);
   const [waitlistPosition, setWaitlistPosition] = useState<number | null>(null);
+  const [demoReservedSlots, setDemoReservedSlots] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!isDemo) return;
+
+    const timer = window.setTimeout(() => {
+      try {
+        const storedSlots = window.localStorage.getItem(`demo-facility-bookings:${facilityId}`);
+        setDemoReservedSlots(
+          storedSlots ? new Set(JSON.parse(storedSlots) as string[]) : new Set()
+        );
+      } catch {
+        setDemoReservedSlots(new Set());
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [facilityId, isDemo]);
 
   useEffect(() => {
     let isMounted = true;
@@ -120,7 +140,10 @@ export default function FacilityAvailabilityView({
             let status: SlotItem["status"] =
               startDate.getTime() <= Date.now() ? "UNAVAILABLE" : "AVAILABLE";
 
-            if (status === "AVAILABLE" && slots.length > 0 && slots.length % 4 === 3) {
+            if (
+              status === "AVAILABLE" &&
+              demoReservedSlots.has(`${selectedDate}|${startTime}`)
+            ) {
               status = "BOOKED";
             }
 
@@ -188,6 +211,7 @@ export default function FacilityAvailabilityView({
     demoSportType,
     demoOperatingHours,
     demoSlotDuration,
+    demoReservedSlots,
   ]);
 
   const handleRefresh = useCallback(() => {
@@ -220,6 +244,46 @@ export default function FacilityAvailabilityView({
     try {
       if (isDemo) {
         setBookingSuccess(true);
+        const demoBooking = {
+          id: `demo-${facilityId}-${selectedDate}-${bookingSlot.startTime}`,
+          facilityId,
+          facilityName: demoName || "Demo Facility",
+          sportType: demoSportType || "SPORTS",
+          location: demoLocation || "",
+          bookingDate: selectedDate,
+          startTime: bookingSlot.startTime,
+          endTime: bookingSlot.endTime,
+          startAt: bookingSlot.startAt,
+          endAt: bookingSlot.endAt,
+          status: "CONFIRMED",
+          bookingType:
+            bookingSlot.startTime >= "18:00" && bookingSlot.startTime < "21:00"
+              ? "PRIME_TIME"
+              : "REGULAR",
+        };
+        setDemoReservedSlots((previous) => {
+          const updated = new Set(previous);
+          updated.add(`${selectedDate}|${bookingSlot.startTime}`);
+          try {
+            window.localStorage.setItem(
+              `demo-facility-bookings:${facilityId}`,
+              JSON.stringify(Array.from(updated))
+            );
+            const bookingsKey = "demo-facility-my-bookings";
+            const existing = JSON.parse(
+              window.localStorage.getItem(bookingsKey) || "[]"
+            ) as Array<typeof demoBooking>;
+            const nextBookings = [
+              ...existing.filter((booking) => booking.id !== demoBooking.id),
+              demoBooking,
+            ];
+            window.localStorage.setItem(bookingsKey, JSON.stringify(nextBookings));
+          } catch {
+            // The in-memory demo state still works if browser storage is unavailable.
+          }
+          return updated;
+        });
+        handleRefresh();
         return;
       }
 
@@ -257,6 +321,30 @@ export default function FacilityAvailabilityView({
 
     try {
       if (isDemo) {
+        const demoWaitlistEntry = {
+          id: `demo-waitlist-${facilityId}-${selectedDate}-${waitlistSlot.startTime}`,
+          facilityId,
+          facilityName: demoName || "Demo Facility",
+          sportType: demoSportType || "SPORTS",
+          location: demoLocation || "",
+          requestedDate: selectedDate,
+          startAt: waitlistSlot.startAt,
+          endAt: waitlistSlot.endAt,
+          position: 1,
+          status: "WAITING",
+          createdAt: new Date().toISOString(),
+        };
+        const waitlistKey = "demo-facility-my-waitlists";
+        const existing = JSON.parse(
+          window.localStorage.getItem(waitlistKey) || "[]"
+        ) as Array<typeof demoWaitlistEntry>;
+        window.localStorage.setItem(
+          waitlistKey,
+          JSON.stringify([
+            ...existing.filter((entry) => entry.id !== demoWaitlistEntry.id),
+            demoWaitlistEntry,
+          ])
+        );
         setWaitlistSuccess(true);
         setWaitlistPosition(1);
         return;

@@ -7,12 +7,13 @@
 6 silly config load:file:C:\Users\Dell\AppData\Roaming\npm\etc\npmrc
 7 verbose title npm run build
 8 verbose argv "run" "build"
-9 verbose logfile logs-max:10 dir:C:\Users\Dell\Desktop\Nexo\clean\_logs\2026-11-20T23_13_59_076Z-
-10 verbose logfile C:\Users\Dell\Desktop\Nexo\clean\_logs\2026-11-20T23_13_59_076Z-debug-0.log
-11 silly logfile done cleaning log files
-12 verbose cwd C:\Users\Dell\Desktop\Nexo
-13 verbose os Windows_NT 10.0.26300
-14 verbose node v24.13.0
-15 verbose npm  v11.6.2
-16 verbose exit 0
-17 info ok
+9 verbose logfile logs-max:10 dir:C:\Users\Dell\Desktop\Nexo\clean\_logs\2026-11-21T00_33_13_055Z-
+10 verbose logfile C:\Users\Dell\Desktop\Nexo\clean\_logs\2026-11-21T00_33_13_055Z-debug-0.log
+11 silly logfile start cleaning logs, removing 1 files
+12 silly logfile done cleaning log files
+13 verbose cwd C:\Users\Dell\Desktop\Nexo
+14 verbose os Windows_NT 10.0.26300
+15 verbose node v24.13.0
+16 verbose npm  v11.6.2
+17 verbose exit 0
+18 info ok

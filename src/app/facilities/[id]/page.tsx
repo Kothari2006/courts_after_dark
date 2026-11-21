@@ -201,6 +201,7 @@ export default async function FacilityDetailPage({ params }: PageProps) {
           isDemo={facility.isDemo}
           demoName={facility.name}
           demoSportType={facility.sportType}
+          demoLocation={facility.location}
           demoOperatingHours={facility.operatingHours}
           demoSlotDuration={facility.slotDuration}
         />

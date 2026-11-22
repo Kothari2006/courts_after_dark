@@ -25,6 +25,7 @@ import {
   RefreshCw,
   Eye,
   Info,
+  Package,
 } from "lucide-react";
 
 interface FacilityOption {
@@ -61,7 +62,8 @@ export default function TeacherDashboardClient({
 }: TeacherProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const activeTab = searchParams.get("tab") || "overview";
+  const requestedTab = searchParams.get("tab") || "overview";
+  const activeTab = requestedTab === "attendance" ? "overview" : requestedTab;
 
   const handleTabChange = (tab: string) => {
     router.push(`/teacher/dashboard?tab=${tab}`);
@@ -162,7 +164,12 @@ export default function TeacherDashboardClient({
 
       const data = await res.json();
       if (!res.ok) {
-        setActivityFormError(data.message || "Failed to create activity");
+        const validationErrors = Array.isArray(data.errors)
+          ? data.errors.map((error: { path?: string[]; message?: string }) =>
+              `${error.path?.join(".") || "form"}: ${error.message || "Invalid value"}`
+            ).join("; ")
+          : null;
+        setActivityFormError(validationErrors || data.message || "Failed to create activity");
         return;
       }
 
@@ -291,11 +298,6 @@ export default function TeacherDashboardClient({
     bookingId: string,
     attendanceStatus: "CHECKED_IN" | "NO_SHOW"
   ) => {
-    if (bookingId.startsWith("demo-")) {
-      alert("Demo bookings are local previews. Attendance is available for database bookings.");
-      return;
-    }
-
     try {
       const res = await fetch(`/api/teacher/bookings/${bookingId}/attendance`, {
         method: "PATCH",
@@ -380,18 +382,41 @@ export default function TeacherDashboardClient({
   const [scheduleDate, setScheduleDate] = useState(new Date().toISOString().split("T")[0]);
   const [scheduleData, setScheduleData] = useState<any | null>(null);
   const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [facilityOptions, setFacilityOptions] = useState<FacilityOption[]>(initialFacilities);
+  const [showCreateFacilityModal, setShowCreateFacilityModal] = useState(false);
+  const [facilitySubmitting, setFacilitySubmitting] = useState(false);
+  const [facilityFormError, setFacilityFormError] = useState<string | null>(null);
+  const [facilitySuccess, setFacilitySuccess] = useState<string | null>(null);
+  const [facilityFormData, setFacilityFormData] = useState({
+    name: "",
+    description: "",
+    sportType: "BADMINTON",
+    location: "",
+    capacity: 4,
+    openTime: "06:00",
+    closeTime: "23:00",
+    slotDuration: 60,
+  });
 
   const fetchFacilitySchedule = useCallback(async () => {
-    if (!scheduleFacilityId) return;
+    if (!scheduleFacilityId) {
+      setScheduleData(null);
+      setScheduleError("No active facilities are available.");
+      return;
+    }
     setScheduleLoading(true);
+    setScheduleError(null);
     try {
       const res = await fetch(
         `/api/teacher/schedule?facilityId=${scheduleFacilityId}&date=${scheduleDate}`
       );
       const data = await res.json();
-      if (res.ok) setScheduleData(data.schedule);
-    } catch {
-      // ignore
+      if (!res.ok) throw new Error(data.message || "Failed to load facility schedule");
+      setScheduleData(data.schedule);
+    } catch (error) {
+      setScheduleData(null);
+      setScheduleError(error instanceof Error ? error.message : "Failed to load facility schedule");
     } finally {
       setScheduleLoading(false);
     }
@@ -400,6 +425,145 @@ export default function TeacherDashboardClient({
   useEffect(() => {
     if (activeTab === "schedule") fetchFacilitySchedule();
   }, [activeTab, fetchFacilitySchedule]);
+
+  const handleCreateFacility = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFacilityFormError(null);
+    setFacilitySuccess(null);
+    setFacilitySubmitting(true);
+
+    try {
+      const res = await fetch("/api/facilities", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: facilityFormData.name.trim(),
+          description: facilityFormData.description.trim(),
+          sportType: facilityFormData.sportType,
+          location: facilityFormData.location.trim(),
+          capacity: Number(facilityFormData.capacity),
+          status: "ACTIVE",
+          operatingHours: {
+            open: facilityFormData.openTime,
+            close: facilityFormData.closeTime,
+          },
+          slotDuration: Number(facilityFormData.slotDuration),
+          timezone: "Asia/Kolkata",
+          images: [],
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to create facility");
+
+      const created = data.data as FacilityOption;
+      setFacilityOptions((current) =>
+        [...current, created].sort((a, b) => a.name.localeCompare(b.name))
+      );
+      setScheduleFacilityId(created._id);
+      setScheduleData(null);
+      setFacilitySuccess(`Facility "${created.name}" created successfully.`);
+      setShowCreateFacilityModal(false);
+      setFacilityFormData({
+        name: "",
+        description: "",
+        sportType: "BADMINTON",
+        location: "",
+        capacity: 4,
+        openTime: "06:00",
+        closeTime: "23:00",
+        slotDuration: 60,
+      });
+    } catch (error) {
+      setFacilityFormError(error instanceof Error ? error.message : "Failed to create facility");
+    } finally {
+      setFacilitySubmitting(false);
+    }
+  };
+
+  // ==========================================
+  // TAB: EQUIPMENT INVENTORY & REQUESTS
+  // ==========================================
+  const [equipmentItems, setEquipmentItems] = useState<any[]>([]);
+  const [equipmentRequests, setEquipmentRequests] = useState<any[]>([]);
+  const [equipmentLoading, setEquipmentLoading] = useState(false);
+  const [equipmentActionId, setEquipmentActionId] = useState<string | null>(null);
+  const [equipmentError, setEquipmentError] = useState<string | null>(null);
+  const [equipmentSuccess, setEquipmentSuccess] = useState<string | null>(null);
+  const [equipmentName, setEquipmentName] = useState("");
+  const [equipmentCategory, setEquipmentCategory] = useState("BADMINTON");
+  const [equipmentQuantity, setEquipmentQuantity] = useState(1);
+
+  const fetchEquipment = useCallback(async () => {
+    setEquipmentLoading(true);
+    setEquipmentError(null);
+    try {
+      const [inventoryRes, requestsRes] = await Promise.all([
+        fetch("/api/equipment?limit=100"),
+        fetch("/api/equipment/requests?status=REQUESTED&limit=100"),
+      ]);
+      const inventoryData = await inventoryRes.json();
+      const requestsData = await requestsRes.json();
+      if (!inventoryRes.ok) throw new Error(inventoryData.message || "Failed to load inventory");
+      if (!requestsRes.ok) throw new Error(requestsData.message || "Failed to load requests");
+      setEquipmentItems(inventoryData.equipment || []);
+      setEquipmentRequests(requestsData.records || []);
+    } catch (error) {
+      setEquipmentError(error instanceof Error ? error.message : "Failed to load equipment");
+    } finally {
+      setEquipmentLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "equipment") fetchEquipment();
+  }, [activeTab, fetchEquipment]);
+
+  const handleAddEquipment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEquipmentError(null);
+    setEquipmentSuccess(null);
+    try {
+      const res = await fetch("/api/equipment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: equipmentName.trim(),
+          category: equipmentCategory,
+          totalQuantity: Number(equipmentQuantity),
+          status: "AVAILABLE",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to add equipment");
+      setEquipmentSuccess("Equipment added successfully.");
+      setEquipmentName("");
+      setEquipmentQuantity(1);
+      fetchEquipment();
+    } catch (error) {
+      setEquipmentError(error instanceof Error ? error.message : "Failed to add equipment");
+    }
+  };
+
+  const handleEquipmentRequestAction = async (id: string, action: "APPROVE" | "REJECT") => {
+    setEquipmentActionId(id);
+    setEquipmentError(null);
+    setEquipmentSuccess(null);
+    try {
+      const res = await fetch(`/api/equipment/requests/${id}/action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to update request");
+      setEquipmentSuccess(action === "APPROVE" ? "Equipment request approved successfully." : "Equipment request rejected.");
+      fetchEquipment();
+    } catch (error) {
+      setEquipmentError(error instanceof Error ? error.message : "Failed to update request");
+    } finally {
+      setEquipmentActionId(null);
+    }
+  };
 
   // ==========================================
   // TAB 6: DAMAGE / MAINTENANCE REPORTS STATE
@@ -791,24 +955,12 @@ export default function TeacherDashboardClient({
 
                         <div className="flex items-center gap-2">
                           {isOwner && act.status === "SCHEDULED" && (
-                            <>
-                              <button
-                                onClick={() => {
-                                  setSelectedAttendanceActivityId(act._id);
-                                  handleTabChange("attendance");
-                                  fetchActivityAttendance(act._id);
-                                }}
-                                className="px-2.5 py-1.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 text-xs font-semibold"
-                              >
-                                Attendance
-                              </button>
-                              <button
-                                onClick={() => handleCancelActivity(act._id)}
-                                className="px-2.5 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-semibold"
-                              >
-                                Cancel
-                              </button>
-                            </>
+                            <button
+                              onClick={() => handleCancelActivity(act._id)}
+                              className="px-2.5 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-semibold"
+                            >
+                              Cancel
+                            </button>
                           )}
                         </div>
                       </div>
@@ -946,29 +1098,12 @@ export default function TeacherDashboardClient({
                             </span>
                           </td>
                           <td className="p-4 text-right">
-                            {b.status === "CONFIRMED" && !String(b._id).startsWith("demo-") ? (
-                              <div className="flex justify-end gap-1.5">
-                                <button
-                                  onClick={() => handleBookingAttendance(b._id, "CHECKED_IN")}
-                                  className="px-2.5 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-semibold"
-                                >
-                                  Check In
-                                </button>
-                                <button
-                                  onClick={() => handleBookingAttendance(b._id, "NO_SHOW")}
-                                  className="px-2.5 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-semibold"
-                                >
-                                  No Show
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => setSelectedBookingDetails(b)}
-                                className="px-2.5 py-1.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 font-semibold inline-flex items-center gap-1.5"
-                              >
-                                <Eye className="h-3.5 w-3.5" /> View
-                              </button>
-                            )}
+                            <button
+                              onClick={() => setSelectedBookingDetails(b)}
+                              className="px-2.5 py-1.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 font-semibold inline-flex items-center gap-1.5"
+                            >
+                              <Eye className="h-3.5 w-3.5" /> View
+                            </button>
                           </td>
                         </tr>
                       ))
@@ -1154,14 +1289,31 @@ export default function TeacherDashboardClient({
         {/* ==================================================== */}
         {activeTab === "schedule" && (
           <div className="space-y-6">
-            <div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-purple-400" /> Facility Operating Schedule
               </h2>
+              <button
+                onClick={() => {
+                  setFacilityFormError(null);
+                  setShowCreateFacilityModal(true);
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-purple-500 px-4 py-2.5 text-xs font-bold text-white hover:bg-purple-400"
+              >
+                <Plus className="h-4 w-4" /> Create Facility
+              </button>
+            </div>
+            <div>
               <p className="text-xs text-purple-300/70 mt-0.5">
                 Inspect court operating hours, scheduled maintenance, and reserved time slots. Student personal details are protected.
               </p>
             </div>
+
+            {facilitySuccess && (
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-400">
+                {facilitySuccess}
+              </div>
+            )}
 
             {/* Filter Bar */}
             <div className="p-4 rounded-2xl border border-purple-900/40 bg-purple-950/20 flex flex-wrap items-center gap-4">
@@ -1174,7 +1326,10 @@ export default function TeacherDashboardClient({
                   onChange={(e) => setScheduleFacilityId(e.target.value)}
                   className="w-full px-3.5 py-2 rounded-xl bg-purple-950/50 border border-purple-900/60 text-xs text-white focus:outline-none"
                 >
-                  {initialFacilities.map((f) => (
+                  {facilityOptions.length === 0 && (
+                    <option value="">No active facilities available</option>
+                  )}
+                  {facilityOptions.map((f) => (
                     <option key={f._id} value={f._id}>
                       {f.name} ({f.sportType})
                     </option>
@@ -1197,12 +1352,19 @@ export default function TeacherDashboardClient({
               <div className="self-end">
                 <button
                   onClick={fetchFacilitySchedule}
+                  disabled={!scheduleFacilityId || scheduleLoading}
                   className="px-4 py-2 rounded-xl bg-purple-500 hover:bg-purple-400 text-white text-xs font-bold"
                 >
                   Load Schedule
                 </button>
               </div>
             </div>
+
+            {scheduleError && (
+              <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-300">
+                {scheduleError}
+              </div>
+            )}
 
             {/* Schedule View */}
             {scheduleLoading ? (
@@ -1317,7 +1479,138 @@ export default function TeacherDashboardClient({
         )}
 
         {/* ==================================================== */}
-        {/* TAB 6: MAINTENANCE & DAMAGE REPORTS */}
+        {/* TAB 6: EQUIPMENT INVENTORY & STUDENT REQUESTS */}
+        {/* ==================================================== */}
+        {activeTab === "equipment" && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <Package className="h-5 w-5 text-purple-400" /> Sports Equipment
+              </h2>
+              <p className="text-xs text-purple-300/70 mt-0.5">
+                Upload inventory and review equipment requested by students.
+              </p>
+            </div>
+
+            {equipmentError && (
+              <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-300">
+                {equipmentError}
+              </div>
+            )}
+            {equipmentSuccess && (
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-400">
+                <span className="font-bold">✓ </span>{equipmentSuccess}
+              </div>
+            )}
+
+            <form onSubmit={handleAddEquipment} className="rounded-2xl border border-purple-900/40 bg-[var(--surface)] p-5">
+              <h3 className="mb-4 text-sm font-bold text-white">Upload Equipment</h3>
+              <div className="grid gap-3 sm:grid-cols-4">
+                <input
+                  required
+                  minLength={2}
+                  value={equipmentName}
+                  onChange={(e) => setEquipmentName(e.target.value)}
+                  placeholder="Equipment name"
+                  className="rounded-xl border border-purple-900/60 bg-purple-950/40 px-3 py-2.5 text-xs text-white placeholder-slate-500"
+                />
+                <select
+                  value={equipmentCategory}
+                  onChange={(e) => setEquipmentCategory(e.target.value)}
+                  className="rounded-xl border border-purple-900/60 bg-purple-950/40 px-3 py-2.5 text-xs text-white"
+                >
+                  {["BADMINTON", "BASKETBALL", "FOOTBALL", "CRICKET", "TENNIS", "GYM", "OTHER"].map((category) => (
+                    <option key={category} value={category}>{category}</option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  value={equipmentQuantity}
+                  onChange={(e) => setEquipmentQuantity(Math.max(1, Number(e.target.value) || 1))}
+                  className="rounded-xl border border-purple-900/60 bg-purple-950/40 px-3 py-2.5 text-xs text-white"
+                />
+                <button type="submit" className="rounded-xl bg-purple-500 px-4 py-2.5 text-xs font-bold text-white hover:bg-purple-400">
+                  Add to Inventory
+                </button>
+              </div>
+            </form>
+
+            {equipmentLoading ? (
+              <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-purple-400" /></div>
+            ) : (
+              <div className="grid gap-6 lg:grid-cols-2">
+                <div className="space-y-3">
+                  <h3 className="text-sm font-bold text-white">Current Inventory</h3>
+                  {equipmentItems.map((item) => (
+                    <div key={item._id} className="flex items-center justify-between rounded-xl border border-purple-900/40 bg-[var(--surface)] p-4">
+                      <div>
+                        <p className="text-sm font-bold text-white">{item.name}</p>
+                        <p className="text-[11px] text-purple-300/70">{item.category}</p>
+                      </div>
+                      <span className="rounded-lg bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-400">
+                        {item.availableQuantity} available
+                      </span>
+                    </div>
+                  ))}
+                  {equipmentItems.length === 0 && (
+                    <p className="rounded-xl border border-purple-900/40 p-5 text-center text-xs text-slate-400">No equipment uploaded yet.</p>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <h3 className="text-sm font-bold text-white">Student Equipment Requests</h3>
+                  {equipmentRequests.map((request) => (
+                    <div key={request._id} className="rounded-xl border border-purple-900/40 bg-[var(--surface)] p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-bold text-white">
+                            {request.requestType === "CUSTOM"
+                              ? request.requestedEquipmentName
+                              : request.items?.[0]?.equipment?.name || "Equipment"}
+                          </p>
+                          <p className="mt-1 text-[11px] text-purple-300/70">
+                            {request.requestType === "CUSTOM" ? "Custom need" : "Catalog request"} • Quantity: {request.quantity || request.items?.[0]?.quantity || 1}
+                          </p>
+                          {request.requestType === "CUSTOM" && (
+                            <p className="mt-1 text-[11px] text-slate-400">Category: {request.requestedCategory}</p>
+                          )}
+                          {request.user?.name && (
+                            <p className="mt-1 text-[11px] text-slate-400">Student: {request.user.name}</p>
+                          )}
+                          {request.notes && <p className="mt-2 text-xs text-slate-300">{request.notes}</p>}
+                        </div>
+                        <div className="flex shrink-0 gap-2">
+                          <button
+                            disabled={equipmentActionId === request._id}
+                            onClick={() => handleEquipmentRequestAction(request._id, "APPROVE")}
+                            className="rounded-lg bg-emerald-500 px-3 py-2 text-[11px] font-bold text-white disabled:opacity-50"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            disabled={equipmentActionId === request._id}
+                            onClick={() => handleEquipmentRequestAction(request._id, "REJECT")}
+                            className="rounded-lg border border-rose-500/40 px-3 py-2 text-[11px] font-bold text-rose-300 disabled:opacity-50"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {equipmentRequests.length === 0 && (
+                    <p className="rounded-xl border border-purple-900/40 p-5 text-center text-xs text-slate-400">No pending student requests.</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ==================================================== */}
+        {/* TAB 7: MAINTENANCE & DAMAGE REPORTS */}
         {/* ==================================================== */}
         {activeTab === "maintenance" && (
           <div className="space-y-6">
@@ -1813,6 +2106,160 @@ export default function TeacherDashboardClient({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {showCreateFacilityModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm">
+          <form
+            onSubmit={handleCreateFacility}
+            className="my-8 w-full max-w-2xl space-y-5 rounded-2xl border border-purple-900/60 bg-[var(--surface)] p-6 shadow-2xl"
+          >
+            <div className="flex items-center justify-between border-b border-purple-900/40 pb-3">
+              <div>
+                <h3 className="flex items-center gap-2 text-base font-bold text-white">
+                  <MapPin className="h-5 w-5 text-purple-400" /> Create Facility
+                </h3>
+                <p className="mt-1 text-xs text-slate-400">
+                  New facilities are active and immediately available as event venues.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateFacilityModal(false)}
+                className="rounded-lg px-2 py-1 text-xs text-slate-400 hover:text-white"
+              >
+                Close
+              </button>
+            </div>
+
+            {facilityFormError && (
+              <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-300">
+                {facilityFormError}
+              </div>
+            )}
+
+            <div className="grid gap-4 text-xs sm:grid-cols-2">
+              <label className="space-y-1 font-semibold text-purple-200">
+                <span>Facility name</span>
+                <input
+                  required
+                  minLength={2}
+                  maxLength={150}
+                  value={facilityFormData.name}
+                  onChange={(e) => setFacilityFormData((current) => ({ ...current, name: e.target.value }))}
+                  className="w-full rounded-xl border border-purple-900/60 bg-purple-950/40 px-3 py-2.5 text-white"
+                  placeholder="e.g. North Arena - Court 1"
+                />
+              </label>
+
+              <label className="space-y-1 font-semibold text-purple-200">
+                <span>Sport</span>
+                <select
+                  value={facilityFormData.sportType}
+                  onChange={(e) => setFacilityFormData((current) => ({ ...current, sportType: e.target.value }))}
+                  className="w-full rounded-xl border border-purple-900/60 bg-purple-950/40 px-3 py-2.5 text-white"
+                >
+                  {["BADMINTON", "BASKETBALL", "FOOTBALL", "CRICKET", "TENNIS", "GYM", "OTHER"].map((sport) => (
+                    <option key={sport} value={sport}>{sport}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="space-y-1 font-semibold text-purple-200">
+                <span>Location</span>
+                <input
+                  required
+                  minLength={2}
+                  maxLength={150}
+                  value={facilityFormData.location}
+                  onChange={(e) => setFacilityFormData((current) => ({ ...current, location: e.target.value }))}
+                  className="w-full rounded-xl border border-purple-900/60 bg-purple-950/40 px-3 py-2.5 text-white"
+                  placeholder="Building, floor, or campus area"
+                />
+              </label>
+
+              <label className="space-y-1 font-semibold text-purple-200">
+                <span>Capacity</span>
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  max={500}
+                  value={facilityFormData.capacity}
+                  onChange={(e) => setFacilityFormData((current) => ({ ...current, capacity: Number(e.target.value) }))}
+                  className="w-full rounded-xl border border-purple-900/60 bg-purple-950/40 px-3 py-2.5 text-white"
+                />
+              </label>
+
+              <label className="space-y-1 font-semibold text-purple-200 sm:col-span-2">
+                <span>Description</span>
+                <textarea
+                  required
+                  minLength={5}
+                  maxLength={1000}
+                  rows={2}
+                  value={facilityFormData.description}
+                  onChange={(e) => setFacilityFormData((current) => ({ ...current, description: e.target.value }))}
+                  className="w-full rounded-xl border border-purple-900/60 bg-purple-950/40 px-3 py-2.5 text-white"
+                  placeholder="Describe the venue and available amenities"
+                />
+              </label>
+
+              <label className="space-y-1 font-semibold text-purple-200">
+                <span>Opening time</span>
+                <input
+                  type="time"
+                  required
+                  value={facilityFormData.openTime}
+                  onChange={(e) => setFacilityFormData((current) => ({ ...current, openTime: e.target.value }))}
+                  className="w-full rounded-xl border border-purple-900/60 bg-purple-950/40 px-3 py-2.5 text-white"
+                />
+              </label>
+
+              <label className="space-y-1 font-semibold text-purple-200">
+                <span>Closing time</span>
+                <input
+                  type="time"
+                  required
+                  value={facilityFormData.closeTime}
+                  onChange={(e) => setFacilityFormData((current) => ({ ...current, closeTime: e.target.value }))}
+                  className="w-full rounded-xl border border-purple-900/60 bg-purple-950/40 px-3 py-2.5 text-white"
+                />
+              </label>
+
+              <label className="space-y-1 font-semibold text-purple-200">
+                <span>Slot duration (minutes)</span>
+                <input
+                  type="number"
+                  required
+                  min={15}
+                  max={240}
+                  step={15}
+                  value={facilityFormData.slotDuration}
+                  onChange={(e) => setFacilityFormData((current) => ({ ...current, slotDuration: Number(e.target.value) }))}
+                  className="w-full rounded-xl border border-purple-900/60 bg-purple-950/40 px-3 py-2.5 text-white"
+                />
+              </label>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-purple-900/40 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowCreateFacilityModal(false)}
+                className="rounded-xl border border-purple-900/60 px-4 py-2.5 text-xs font-semibold text-slate-300 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={facilitySubmitting}
+                className="rounded-xl bg-purple-500 px-5 py-2.5 text-xs font-bold text-white hover:bg-purple-400 disabled:opacity-50"
+              >
+                {facilitySubmitting ? "Creating..." : "Create Facility"}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </TeacherDashboardLayout>

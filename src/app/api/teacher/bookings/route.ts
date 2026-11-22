@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { publicErrorMessage } from "@/lib/api-errors";
 import { validateApiAuth } from "@/lib/auth-utils";
 import { getStudentBookingsForTeacher } from "@/services/teacher.service";
+import connectToDatabase from "@/lib/mongodb";
+import DemoBooking from "@/models/DemoBooking";
 
 // GET /api/teacher/bookings - View student bookings (read-only for teachers)
 export async function GET(req: NextRequest) {
@@ -30,9 +32,45 @@ export async function GET(req: NextRequest) {
       status,
     });
 
+    await connectToDatabase();
+    const demoRecords = await DemoBooking.find({})
+      .populate("user", "name email role")
+      .sort({ startAt: -1 })
+      .lean();
+
+    const demoBookings = demoRecords.map((booking) => ({
+      _id: booking.externalId,
+      user: booking.user,
+      facility: {
+        _id: booking.facilityId,
+        name: booking.facilityName,
+        sportType: booking.sportType,
+        location: booking.location,
+      },
+      bookingDate: booking.bookingDate,
+      startTime: booking.startTime,
+      endTime: booking.endTime,
+      startAt: booking.startAt,
+      endAt: booking.endAt,
+      status: booking.status,
+      bookingType: booking.bookingType,
+      attendanceStatus: booking.attendanceStatus,
+    }));
+
+    const existingIds = new Set(result.bookings.map((booking: { _id: unknown }) => String(booking._id)));
+    const combinedBookings = [
+      ...result.bookings,
+      ...demoBookings.filter((booking) => !existingIds.has(String(booking._id))),
+    ];
+
     return NextResponse.json({
       status: "success",
       ...result,
+      bookings: combinedBookings,
+      pagination: {
+        ...result.pagination,
+        total: result.pagination.total + combinedBookings.length - result.bookings.length,
+      },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Internal server error";

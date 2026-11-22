@@ -7,6 +7,7 @@ import {
 } from "@/lib/validations/activity";
 import {
   createActivity,
+  createDemoActivity,
   getActivities,
   ActivityConflictError,
   ActivityNotFoundError,
@@ -83,7 +84,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const activity = await createActivity(parsed.data, user.id);
+    const activity = parsed.data.facilityId.startsWith("fac-")
+      ? await createDemoActivity(parsed.data, user.id)
+      : await createActivity(parsed.data, user.id);
 
     return NextResponse.json(
       {

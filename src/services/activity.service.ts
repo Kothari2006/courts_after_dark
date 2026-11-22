@@ -7,6 +7,9 @@ import Activity, {
 import Facility, { IFacility } from "@/models/Facility";
 import Booking from "@/models/Booking";
 import Maintenance from "@/models/Maintenance";
+import DemoActivity from "@/models/DemoActivity";
+import DemoBooking from "@/models/DemoBooking";
+import { DEMO_FACILITIES } from "@/lib/data/demo-facilities";
 import { Types } from "mongoose";
 
 export class ActivityConflictError extends Error {
@@ -165,6 +168,77 @@ export async function createActivity(
   return activity;
 }
 
+export async function createDemoActivity(
+  input: CreateActivityInput,
+  teacherId: string
+) {
+  await connectToDatabase();
+
+  const facility = DEMO_FACILITIES.find(
+    (item) => item.id === input.facilityId && item.status === "ACTIVE"
+  );
+  if (!facility) {
+    throw new ActivityNotFoundError("Facility not found");
+  }
+
+  const startAt = new Date(input.startAt);
+  const endAt = new Date(input.endAt);
+  if (endAt <= startAt) {
+    throw new ActivityConflictError("End time must be strictly after start time");
+  }
+
+  const startHour = startAt.getUTCHours() + startAt.getUTCMinutes() / 60;
+  const endHour = endAt.getUTCHours() + endAt.getUTCMinutes() / 60;
+  const [openHour, openMinute] = facility.operatingHours.open.split(":").map(Number);
+  const [closeHour, closeMinute] = facility.operatingHours.close.split(":").map(Number);
+  if (
+    startHour < openHour + openMinute / 60 ||
+    endHour > closeHour + closeMinute / 60
+  ) {
+    throw new ActivityConflictError(
+      `Activity time must fall within facility operating hours (${facility.operatingHours.open} - ${facility.operatingHours.close})`
+    );
+  }
+
+  const [bookingConflict, activityConflict] = await Promise.all([
+    DemoBooking.findOne({
+      facilityId: facility.id,
+      status: "CONFIRMED",
+      startAt: { $lt: endAt },
+      endAt: { $gt: startAt },
+    }),
+    DemoActivity.findOne({
+      facilityId: facility.id,
+      status: { $in: ["SCHEDULED", "IN_PROGRESS"] },
+      startAt: { $lt: endAt },
+      endAt: { $gt: startAt },
+    }),
+  ]);
+  if (bookingConflict) {
+    throw new ActivityConflictError(
+      `Facility "${facility.name}" already has a reserved booking during this time slot`
+    );
+  }
+  if (activityConflict) {
+    throw new ActivityConflictError(
+      `Another sports activity ("${activityConflict.title}") is already scheduled at this facility during this time`
+    );
+  }
+
+  return DemoActivity.create({
+    title: input.title.trim(),
+    description: input.description?.trim() || "",
+    sportType: input.sportType,
+    facilityId: facility.id,
+    createdBy: new Types.ObjectId(teacherId),
+    startAt,
+    endAt,
+    participantLimit: input.participantLimit || 20,
+    participants: [],
+    status: "SCHEDULED",
+  });
+}
+
 export interface ActivityFilterParams {
   page?: number;
   limit?: number;
@@ -192,7 +266,10 @@ export async function getActivities(params: ActivityFilterParams = {}) {
     filter.title = { $regex: params.search.trim(), $options: "i" };
   }
 
-  if (params.facilityId) {
+  const demoFacilityId = params.facilityId?.startsWith("fac-")
+    ? params.facilityId
+    : undefined;
+  if (params.facilityId && !demoFacilityId) {
     filter.facility = new Types.ObjectId(params.facilityId);
   }
 
@@ -214,7 +291,20 @@ export async function getActivities(params: ActivityFilterParams = {}) {
     if (params.to) filter.startAt.$lte = new Date(params.to);
   }
 
-  const [activities, total] = await Promise.all([
+  const demoFilter: Record<string, unknown> = {};
+  if (params.search) demoFilter.title = { $regex: params.search.trim(), $options: "i" };
+  if (demoFacilityId) demoFilter.facilityId = demoFacilityId;
+  if (params.sportType && params.sportType !== "ALL") demoFilter.sportType = params.sportType;
+  if (params.status && params.status !== "ALL") demoFilter.status = params.status;
+  if (params.mine && params.teacherId) demoFilter.createdBy = new Types.ObjectId(params.teacherId);
+  if (params.from || params.to) {
+    demoFilter.startAt = {
+      ...(params.from ? { $gte: new Date(params.from) } : {}),
+      ...(params.to ? { $lte: new Date(params.to) } : {}),
+    };
+  }
+
+  const [activities, total, demoActivities, demoTotal] = await Promise.all([
     Activity.find(filter)
       .populate("facility", "name sportType location")
       .populate("createdBy", "name email role")
@@ -223,15 +313,40 @@ export async function getActivities(params: ActivityFilterParams = {}) {
       .limit(limit)
       .lean(),
     Activity.countDocuments(filter),
+    DemoActivity.find(demoFilter)
+      .populate("createdBy", "name email role")
+      .populate("participants.user", "name email role")
+      .sort({ startAt: 1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    DemoActivity.countDocuments(demoFilter),
   ]);
 
+  const mappedDemoActivities = demoActivities.map((activity) => {
+    const facility = DEMO_FACILITIES.find((item) => item.id === activity.facilityId);
+    return {
+      ...activity,
+      facility: facility
+        ? {
+            _id: facility.id,
+            name: facility.name,
+            sportType: facility.sportType,
+            location: facility.location,
+          }
+        : null,
+    };
+  });
+
   return {
-    activities,
+    activities: [...activities, ...mappedDemoActivities].sort(
+      (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime()
+    ),
     pagination: {
       page,
       limit,
-      total,
-      totalPages: Math.ceil(total / limit) || 1,
+      total: total + demoTotal,
+      totalPages: Math.ceil((total + demoTotal) / limit) || 1,
     },
   };
 }
@@ -244,11 +359,26 @@ export async function getActivityById(id: string) {
     .populate("createdBy", "name email role")
     .populate("participants.user", "name email role");
 
-  if (!activity) {
-    throw new ActivityNotFoundError();
-  }
+  if (activity) return activity;
 
-  return activity;
+  const demoActivity = await DemoActivity.findById(id)
+    .populate("createdBy", "name email role")
+    .populate("participants.user", "name email role");
+  if (!demoActivity) throw new ActivityNotFoundError();
+
+  const facility = DEMO_FACILITIES.find((item) => item.id === demoActivity.facilityId);
+  return {
+    ...demoActivity.toObject(),
+    facility: facility
+      ? {
+          _id: facility.id,
+          name: facility.name,
+          sportType: facility.sportType,
+          location: facility.location,
+          operatingHours: facility.operatingHours,
+        }
+      : null,
+  };
 }
 
 export interface UpdateActivityInput {
@@ -272,7 +402,21 @@ export async function updateActivity(
 
   const activity = await Activity.findById(id);
   if (!activity) {
-    throw new ActivityNotFoundError();
+    const demoActivity = await DemoActivity.findById(id);
+    if (!demoActivity) throw new ActivityNotFoundError();
+    if (!isAdmin && demoActivity.createdBy.toString() !== teacherId) {
+      throw new ActivityForbiddenError("You can only edit activities that you created");
+    }
+    if (updates.facilityId || updates.startAt || updates.endAt) {
+      throw new ActivityConflictError("Demo activity schedule cannot be changed");
+    }
+    if (updates.title) demoActivity.title = updates.title.trim();
+    if (updates.description !== undefined) demoActivity.description = updates.description.trim();
+    if (updates.sportType) demoActivity.sportType = updates.sportType;
+    if (updates.participantLimit) demoActivity.participantLimit = updates.participantLimit;
+    if (updates.status) demoActivity.status = updates.status;
+    await demoActivity.save();
+    return demoActivity;
   }
 
   // Authorization: Only the creator teacher or an ADMIN can edit
@@ -328,7 +472,17 @@ export async function cancelActivity(
 
   const activity = await Activity.findById(id);
   if (!activity) {
-    throw new ActivityNotFoundError();
+    const demoActivity = await DemoActivity.findById(id);
+    if (!demoActivity) throw new ActivityNotFoundError();
+    if (!isAdmin && demoActivity.createdBy.toString() !== teacherId) {
+      throw new ActivityForbiddenError("You can only cancel activities that you created");
+    }
+    demoActivity.status = "CANCELLED";
+    demoActivity.cancellationReason = reason || "Cancelled by organizer";
+    demoActivity.cancelledAt = new Date();
+    demoActivity.cancelledBy = new Types.ObjectId(teacherId);
+    await demoActivity.save();
+    return demoActivity;
   }
 
   if (!isAdmin && activity.createdBy.toString() !== teacherId) {
@@ -349,7 +503,29 @@ export async function joinActivity(activityId: string, userId: string) {
 
   const activity = await Activity.findById(activityId);
   if (!activity) {
-    throw new ActivityNotFoundError();
+    const demoActivity = await DemoActivity.findById(activityId);
+    if (!demoActivity) throw new ActivityNotFoundError();
+    if (demoActivity.status !== "SCHEDULED") {
+      throw new ActivityConflictError(
+        `Cannot join an activity that is ${demoActivity.status.toLowerCase()}`
+      );
+    }
+    if (new Date() >= demoActivity.endAt) {
+      throw new ActivityConflictError("This activity has already ended");
+    }
+    if (demoActivity.participants.some((participant) => participant.user.toString() === userId)) {
+      throw new ActivityConflictError("You are already registered for this activity");
+    }
+    if (demoActivity.participants.length >= demoActivity.participantLimit) {
+      throw new ActivityConflictError("This activity has reached its participant limit");
+    }
+    demoActivity.participants.push({
+      user: new Types.ObjectId(userId),
+      joinedAt: new Date(),
+      attendanceStatus: "REGISTERED",
+    });
+    await demoActivity.save();
+    return demoActivity;
   }
 
   if (activity.status !== "SCHEDULED") {
@@ -389,7 +565,17 @@ export async function leaveActivity(activityId: string, userId: string) {
 
   const activity = await Activity.findById(activityId);
   if (!activity) {
-    throw new ActivityNotFoundError();
+    const demoActivity = await DemoActivity.findById(activityId);
+    if (!demoActivity) throw new ActivityNotFoundError();
+    const participantIndex = demoActivity.participants.findIndex(
+      (participant) => participant.user.toString() === userId
+    );
+    if (participantIndex === -1) {
+      throw new ActivityNotFoundError("You are not registered for this activity");
+    }
+    demoActivity.participants.splice(participantIndex, 1);
+    await demoActivity.save();
+    return demoActivity;
   }
 
   const participantIndex = activity.participants.findIndex(

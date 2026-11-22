@@ -283,6 +283,15 @@ export default function FacilityAvailabilityView({
           }
           return updated;
         });
+        try {
+          await fetch("/api/demo/bookings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(demoBooking),
+          });
+        } catch {
+          // The browser-local demo booking remains available as a fallback.
+        }
         handleRefresh();
         return;
       }

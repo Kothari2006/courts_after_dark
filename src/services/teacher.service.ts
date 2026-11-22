@@ -6,6 +6,9 @@ import Maintenance from "@/models/Maintenance";
 import MaintenanceReport from "@/models/MaintenanceReport";
 import Equipment from "@/models/Equipment";
 void Equipment;
+import DemoBooking from "@/models/DemoBooking";
+import DemoActivity from "@/models/DemoActivity";
+import { DEMO_FACILITIES } from "@/lib/data/demo-facilities";
 import { Types } from "mongoose";
 
 export async function getTeacherOverviewStats(teacherId: string) {
@@ -160,6 +163,73 @@ export async function getStudentBookingsForTeacher(params: TeacherBookingFilterP
 
 export async function getFacilityScheduleForTeacher(facilityId: string, dateStr: string) {
   await connectToDatabase();
+
+  const demoFacility = DEMO_FACILITIES.find(
+    (item) => item.id === facilityId && item.status === "ACTIVE"
+  );
+  if (demoFacility) {
+    const selectedDate = new Date(`${dateStr}T00:00:00`);
+    if (Number.isNaN(selectedDate.getTime())) {
+      throw new Error("INVALID_SCHEDULE_DATE");
+    }
+    const dayStart = new Date(selectedDate);
+    const dayEnd = new Date(selectedDate);
+    dayEnd.setHours(23, 59, 59, 999);
+    const [bookings, activities] = await Promise.all([
+      DemoBooking.find({
+        facilityId,
+        status: "CONFIRMED",
+        startAt: { $lt: dayEnd },
+        endAt: { $gt: dayStart },
+      })
+      .select("startAt endAt startTime endTime status bookingType")
+      .sort({ startAt: 1 })
+      .lean(),
+      DemoActivity.find({
+        facilityId,
+        status: { $in: ["SCHEDULED", "IN_PROGRESS"] },
+        startAt: { $lt: dayEnd },
+        endAt: { $gt: dayStart },
+      })
+        .select("title sportType startAt endAt participantLimit participants status")
+        .populate("createdBy", "name")
+        .lean(),
+    ]);
+
+    return {
+      facility: {
+        _id: demoFacility.id,
+        name: demoFacility.name,
+        sportType: demoFacility.sportType,
+        location: demoFacility.location,
+        operatingHours: demoFacility.operatingHours,
+        slotDuration: demoFacility.slotDuration,
+      },
+      date: dateStr,
+      bookings: bookings.map((booking) => ({
+        _id: booking._id,
+        startAt: booking.startAt,
+        endAt: booking.endAt,
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+        status: booking.status,
+        bookingType: booking.bookingType,
+      })),
+      maintenance: [],
+      activities: activities.map((activity) => ({
+        _id: activity._id,
+        title: activity.title,
+        sportType: activity.sportType,
+        startAt: activity.startAt,
+        endAt: activity.endAt,
+        organizer:
+          (activity.createdBy as { name?: string } | null)?.name || "Faculty",
+        participantCount: activity.participants?.length || 0,
+        participantLimit: activity.participantLimit,
+        status: activity.status,
+      })),
+    };
+  }
 
   const facility = await Facility.findById(facilityId).lean();
   if (!facility) {

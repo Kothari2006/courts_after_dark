@@ -7,11 +7,12 @@ import {
   getManagerCheckouts,
 } from "@/services/equipment.service";
 import { CheckoutStatus } from "@/models/EquipmentCheckout";
+import { EquipmentCategory } from "@/models/Equipment";
 
 // GET /api/equipment/requests - List equipment requests (Staff only)
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await validateApiAuth(["EQUIPMENT_MANAGER", "ADMIN"]);
+    const authResult = await validateApiAuth(["TEACHER", "EQUIPMENT_MANAGER", "ADMIN"]);
     if ("response" in authResult) {
       return authResult.response;
     }
@@ -60,14 +61,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { bookingId, items, expectedReturnAt, notes } = parseResult.data;
-
-    const checkout = await requestEquipment({
-      userId: user.id,
+    const {
       bookingId,
       items,
       expectedReturnAt,
       notes,
+      requestType,
+      requestedEquipmentName,
+      requestedCategory,
+      quantity,
+    } = parseResult.data;
+
+    const checkout = await requestEquipment({
+      userId: user.id,
+      bookingId,
+      items: items.length ? items : undefined,
+      expectedReturnAt,
+      notes,
+      requestType,
+      requestedEquipmentName,
+      requestedCategory: requestedCategory as EquipmentCategory | undefined,
+      quantity: quantity || 1,
     });
 
     return NextResponse.json(
@@ -128,6 +142,11 @@ export async function POST(req: NextRequest) {
             status: "error",
             message: "Requested quantity exceeds available inventory",
           },
+          { status: 400 }
+        );
+      case "CUSTOM_REQUEST_DETAILS_REQUIRED":
+        return NextResponse.json(
+          { status: 400, message: "Please enter the equipment name and category" },
           { status: 400 }
         );
       default:

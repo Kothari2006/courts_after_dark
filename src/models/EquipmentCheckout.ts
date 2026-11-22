@@ -2,6 +2,7 @@ import mongoose, { Schema, Document, Model, Types } from "mongoose";
 
 export type CheckoutStatus =
   | "REQUESTED"
+  | "APPROVED"
   | "ISSUED"
   | "RETURNED"
   | "OVERDUE"
@@ -22,6 +23,11 @@ export interface IEquipmentCheckout extends Document {
   equipment?: Types.ObjectId;
   quantity?: number;
   items: ICheckoutItem[];
+  requestType: "CATALOG" | "CUSTOM";
+  requestedEquipmentName?: string;
+  requestedCategory?: string;
+  reviewedBy?: Types.ObjectId | null;
+  reviewedAt?: Date | null;
   issuedAt?: Date | null;
   expectedReturnAt: Date;
   returnedAt?: Date | null;
@@ -87,6 +93,31 @@ const EquipmentCheckoutSchema = new Schema<IEquipmentCheckout>(
       type: [CheckoutItemSchema],
       default: [],
     },
+    requestType: {
+      type: String,
+      enum: ["CATALOG", "CUSTOM"],
+      default: "CATALOG",
+      index: true,
+    },
+    requestedEquipmentName: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    requestedCategory: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    reviewedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    reviewedAt: {
+      type: Date,
+      default: null,
+    },
     issuedAt: {
       type: Date,
       default: null,
@@ -116,6 +147,7 @@ const EquipmentCheckoutSchema = new Schema<IEquipmentCheckout>(
       enum: {
         values: [
           "REQUESTED",
+          "APPROVED",
           "ISSUED",
           "RETURNED",
           "OVERDUE",

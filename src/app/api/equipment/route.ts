@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
 // POST /api/equipment - Create new equipment (Staff only)
 export async function POST(req: NextRequest) {
   try {
-    const authResult = await validateApiAuth(["EQUIPMENT_MANAGER", "ADMIN"]);
+    const authResult = await validateApiAuth(["TEACHER", "EQUIPMENT_MANAGER", "ADMIN"]);
     if ("response" in authResult) {
       return authResult.response;
     }

@@ -2,6 +2,7 @@ import EventDetailClient from "./EventDetailClient";
 
 interface PageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string | string[] }>;
 }
 
 export const metadata = {
@@ -9,7 +10,8 @@ export const metadata = {
   description: "View tournament bracket, event rules, and registration details.",
 };
 
-export default async function EventDetailPage({ params }: PageProps) {
-  const { id } = await params;
-  return <EventDetailClient eventId={id} />;
+export default async function EventDetailPage({ params, searchParams }: PageProps) {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  const backHref = query.from === "teacher" ? "/teacher/events" : "/events";
+  return <EventDetailClient eventId={id} backHref={backHref} />;
 }

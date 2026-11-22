@@ -83,8 +83,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    // Only Administrators can create facilities
-    const authResult = await validateApiAuth(["ADMIN"]);
+    const authResult = await validateApiAuth(["TEACHER", "ADMIN"]);
     if ("response" in authResult) {
       return authResult.response;
     }

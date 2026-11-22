@@ -44,10 +44,18 @@ export const requestItemSchema = z.object({
 export const createEquipmentRequestSchema = z.object({
   bookingId: z
     .string({ message: "Booking ID is required" })
-    .regex(objectIdRegex, "Invalid booking ID format"),
+    .refine(
+      (value) => value.startsWith("demo-") || objectIdRegex.test(value),
+      "Invalid booking ID format"
+    ),
   items: z
     .array(requestItemSchema, { message: "At least one equipment item is required" })
-    .min(1, "Request must contain at least one item"),
+    .optional()
+    .default([]),
+  requestType: z.enum(["CATALOG", "CUSTOM"]).default("CATALOG"),
+  requestedEquipmentName: z.string().trim().min(2).max(100).optional(),
+  requestedCategory: z.enum(EQUIPMENT_CATEGORIES as [string, ...string[]]).optional(),
+  quantity: z.number().int().min(1).optional().default(1),
   expectedReturnAt: z
     .string({ message: "Expected return time is required" })
     .datetime({ message: "Expected return time must be a valid ISO timestamp" }),

@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   Trophy,
   Users,
-  CheckSquare,
   Calendar,
   AlertTriangle,
   Bell,
@@ -16,6 +15,7 @@ import {
   LogOut,
   GraduationCap,
   X,
+  Package,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -30,8 +30,8 @@ const teacherNavItems = [
   { tab: "overview", label: "Overview", icon: LayoutDashboard },
   { tab: "activities", label: "Sports Activities", icon: Trophy },
   { tab: "bookings", label: "Student Bookings", icon: Users },
-  { tab: "attendance", label: "Attendance", icon: CheckSquare },
   { tab: "schedule", label: "Facility Schedule", icon: Calendar },
+  { tab: "equipment", label: "Equipment", icon: Package },
   { tab: "maintenance", label: "Damage Reports", icon: AlertTriangle },
 ];
 

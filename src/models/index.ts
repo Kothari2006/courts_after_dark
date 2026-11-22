@@ -13,6 +13,8 @@ export * from "./MaintenanceReport";
 export * from "./Review";
 export * from "./Event";
 export * from "./EventRegistration";
+export * from "./DemoBooking";
+export * from "./DemoActivity";
 
 
 

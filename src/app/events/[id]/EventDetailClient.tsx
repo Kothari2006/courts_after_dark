@@ -79,7 +79,13 @@ interface EventDetail {
   } | null;
 }
 
-export default function EventDetailClient({ eventId }: { eventId: string }) {
+export default function EventDetailClient({
+  eventId,
+  backHref = "/events",
+}: {
+  eventId: string;
+  backHref?: string;
+}) {
   const router = useRouter();
   const { data: session, status: authStatus } = useSession();
   const user = session?.user;
@@ -232,7 +238,7 @@ export default function EventDetailClient({ eventId }: { eventId: string }) {
           <h2 className="text-xl font-bold text-white mb-2">Event Not Found</h2>
           <p className="text-slate-400 text-sm mb-6">{error || "This event is unavailable."}</p>
           <Link
-            href="/events"
+            href={backHref}
             className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold"
           >
             Back to Events
@@ -256,7 +262,7 @@ export default function EventDetailClient({ eventId }: { eventId: string }) {
 <div className="w-full">
         {/* Back Link */}
         <Link
-          href="/events"
+          href={backHref}
           className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />

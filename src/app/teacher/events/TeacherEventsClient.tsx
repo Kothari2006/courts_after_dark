@@ -180,6 +180,41 @@ export default function TeacherEventsClient({
   // Handle Create Event
   const handleCreateSubmit = async (publishImmediately: boolean) => {
     setCreateError(null);
+    if (facilities.length === 0 || !formData.facilityId) {
+      setCreateError(
+        teacher.role === "ADMIN"
+          ? "No active facility is available. Create or activate a facility in Admin > Facilities first."
+          : "No active facility is available. Ask an administrator to create or activate a facility first."
+      );
+      return;
+    }
+
+    const eventStart = new Date(formData.startAt);
+    const eventEnd = new Date(formData.endAt);
+    const registrationStart = new Date(formData.registrationStartAt);
+    const registrationEnd = new Date(formData.registrationEndAt);
+    if (
+      Number.isNaN(eventStart.getTime()) ||
+      Number.isNaN(eventEnd.getTime()) ||
+      Number.isNaN(registrationStart.getTime()) ||
+      Number.isNaN(registrationEnd.getTime())
+    ) {
+      setCreateError("Please enter all event and registration dates.");
+      return;
+    }
+    if (eventEnd <= eventStart) {
+      setCreateError("Event end must be after the event start.");
+      return;
+    }
+    if (registrationEnd < registrationStart) {
+      setCreateError("Registration closing time must be after registration starts.");
+      return;
+    }
+    if (registrationEnd > eventStart) {
+      setCreateError("Registration must close on or before the event start time.");
+      return;
+    }
+
     setFormSubmitting(true);
 
     try {
@@ -537,7 +572,7 @@ export default function TeacherEventsClient({
                 {/* Actions */}
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
                   <Link
-                    href={`/events/${evt._id}`}
+                    href={`/events/${evt._id}?from=teacher`}
                     className="p-2 rounded-xl bg-zinc-900 border border-slate-800 text-slate-300 hover:text-white text-xs font-semibold"
                     title="View Public Page"
                   >
@@ -683,19 +718,40 @@ export default function TeacherEventsClient({
                     Facility Venue
                   </label>
                   <select
+                    required
+                    disabled={facilities.length === 0}
                     value={formData.facilityId}
                     onChange={(e) =>
                       setFormData({ ...formData, facilityId: e.target.value })
                     }
                     className="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-slate-800 text-slate-100 focus:outline-none focus:border-purple-500"
                   >
-                    <option value="">-- Select a facility --</option>
+                    <option value="">
+                      {facilities.length ? "-- Select a facility --" : "No active facilities available"}
+                    </option>
                     {facilities.map((f) => (
                       <option key={f._id} value={f._id}>
                         {f.name} ({f.sportType})
                       </option>
                     ))}
                   </select>
+                  {facilities.length === 0 && (
+                    <div className="mt-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300">
+                      <p>
+                        Event venues are created by an administrator. Add a facility and set it to Active before hosting an event.
+                      </p>
+                      {teacher.role === "ADMIN" ? (
+                        <Link
+                          href="/admin/facilities"
+                          className="mt-2 inline-flex font-bold text-amber-200 underline underline-offset-2"
+                        >
+                          Open Facilities Management
+                        </Link>
+                      ) : (
+                        <p className="mt-2">Ask your administrator to add the venue under Admin &gt; Facilities.</p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -706,6 +762,7 @@ export default function TeacherEventsClient({
                     <input
                       type="datetime-local"
                       required
+                      max={formData.endAt || undefined}
                       value={formData.startAt}
                       onChange={(e) =>
                         setFormData({ ...formData, startAt: e.target.value })
@@ -721,6 +778,7 @@ export default function TeacherEventsClient({
                     <input
                       type="datetime-local"
                       required
+                      min={formData.startAt || undefined}
                       value={formData.endAt}
                       onChange={(e) =>
                         setFormData({ ...formData, endAt: e.target.value })
@@ -738,6 +796,7 @@ export default function TeacherEventsClient({
                     <input
                       type="datetime-local"
                       required
+                      max={formData.registrationEndAt || formData.startAt || undefined}
                       value={formData.registrationStartAt}
                       onChange={(e) =>
                         setFormData({
@@ -756,6 +815,8 @@ export default function TeacherEventsClient({
                     <input
                       type="datetime-local"
                       required
+                      min={formData.registrationStartAt || undefined}
+                      max={formData.startAt || undefined}
                       value={formData.registrationEndAt}
                       onChange={(e) =>
                         setFormData({

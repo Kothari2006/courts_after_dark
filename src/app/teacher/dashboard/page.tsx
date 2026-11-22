@@ -2,6 +2,7 @@ import { requireRole } from "@/lib/auth-utils";
 import connectToDatabase from "@/lib/mongodb";
 import Facility, { IFacility } from "@/models/Facility";
 import Equipment, { IEquipment } from "@/models/Equipment";
+import { DEMO_FACILITIES } from "@/lib/data/demo-facilities";
 import TeacherDashboardClient from "./TeacherDashboardClient";
 
 export default async function TeacherDashboardPage() {
@@ -17,6 +18,12 @@ export default async function TeacherDashboardPage() {
       .select("_id name category status")
       .lean<IEquipment[]>(),
   ]);
+  const facilityOptions = facilities.length
+    ? facilities
+    : DEMO_FACILITIES.filter((facility) => facility.status === "ACTIVE").map((facility) => ({
+        ...facility,
+        _id: facility.id,
+      }));
 
   return (
     <TeacherDashboardClient
@@ -26,7 +33,7 @@ export default async function TeacherDashboardPage() {
         email: user.email || "",
         role: user.role,
       }}
-      initialFacilities={JSON.parse(JSON.stringify(facilities))}
+      initialFacilities={JSON.parse(JSON.stringify(facilityOptions))}
       initialEquipment={JSON.parse(JSON.stringify(equipment))}
     />
   );

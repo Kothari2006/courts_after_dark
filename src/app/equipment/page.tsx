@@ -90,6 +90,8 @@ export default function EquipmentPage() {
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [selectedBookingId, setSelectedBookingId] = useState("");
   const [selectedEquipmentId, setSelectedEquipmentId] = useState("");
+  const [customEquipmentName, setCustomEquipmentName] = useState("");
+  const [customEquipmentCategory, setCustomEquipmentCategory] = useState("OTHER");
   const [requestQuantity, setRequestQuantity] = useState(1);
   const [expectedReturnAt, setExpectedReturnAt] = useState("");
   const [notes, setNotes] = useState("");
@@ -210,7 +212,12 @@ export default function EquipmentPage() {
 
   const handleSubmitRequest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedBookingId || !selectedEquipmentId || !expectedReturnAt) {
+    if (
+      !selectedBookingId ||
+      (!selectedEquipmentId ||
+        (selectedEquipmentId === "__CUSTOM__" && customEquipmentName.trim().length < 2)) ||
+      !expectedReturnAt
+    ) {
       setSubmitError("Please fill out all required fields");
       return;
     }
@@ -225,12 +232,21 @@ export default function EquipmentPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           bookingId: selectedBookingId,
-          items: [
-            {
-              equipmentId: selectedEquipmentId,
-              quantity: Number(requestQuantity),
-            },
-          ],
+          requestType: selectedEquipmentId === "__CUSTOM__" ? "CUSTOM" : "CATALOG",
+          requestedEquipmentName:
+            selectedEquipmentId === "__CUSTOM__" ? customEquipmentName.trim() : undefined,
+          requestedCategory:
+            selectedEquipmentId === "__CUSTOM__" ? customEquipmentCategory : undefined,
+          quantity: Number(requestQuantity),
+          items:
+            selectedEquipmentId === "__CUSTOM__"
+              ? []
+              : [
+                  {
+                    equipmentId: selectedEquipmentId,
+                    quantity: Number(requestQuantity),
+                  },
+                ],
           expectedReturnAt: new Date(expectedReturnAt).toISOString(),
           notes: notes.trim() || undefined,
         }),
@@ -239,7 +255,17 @@ export default function EquipmentPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || "Failed to submit request");
+        const validationErrors =
+          data.errors && typeof data.errors === "object"
+            ? Object.entries(data.errors)
+                .flatMap(([field, messages]) =>
+                  Array.isArray(messages)
+                    ? messages.map((message) => `${field}: ${message}`)
+                    : [`${field}: ${String(messages)}`]
+                )
+                .join("; ")
+            : null;
+        throw new Error(validationErrors || data.message || "Failed to submit request");
       }
 
       setSubmitSuccess("Equipment request submitted! Collect at the sports desk.");
@@ -248,6 +274,8 @@ export default function EquipmentPage() {
         setSubmitSuccess(null);
         setSelectedBookingId("");
         setSelectedEquipmentId("");
+        setCustomEquipmentName("");
+        setCustomEquipmentCategory("OTHER");
         setRequestQuantity(1);
         setExpectedReturnAt("");
         setNotes("");
@@ -675,8 +703,41 @@ export default function EquipmentPage() {
                             {item.name} ({item.category}) — {item.availableQuantity} available
                           </option>
                         ))}
+                      <option value="__CUSTOM__">Not in list — request other equipment</option>
                     </select>
                   </div>
+
+                  {selectedEquipmentId === "__CUSTOM__" && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-1">
+                          What equipment do you need? <span className="text-rose-400">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Auger, volleyball net"
+                          value={customEquipmentName}
+                          onChange={(e) => setCustomEquipmentName(e.target.value)}
+                          className="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-lime-400"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-1">
+                          Sport / Category
+                        </label>
+                        <select
+                          value={customEquipmentCategory}
+                          onChange={(e) => setCustomEquipmentCategory(e.target.value)}
+                          className="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-lime-400"
+                        >
+                          {["BADMINTON", "BASKETBALL", "FOOTBALL", "CRICKET", "TENNIS", "GYM", "OTHER"].map((category) => (
+                            <option key={category} value={category}>{category}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Quantity & Expected Return */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

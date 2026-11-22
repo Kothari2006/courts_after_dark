@@ -38,7 +38,10 @@ export const createActivitySchema = z
     }),
     facilityId: z
       .string({ message: "Facility ID is required" })
-      .regex(objectIdRegex, "Invalid facility ID format"),
+      .refine(
+        (value) => value.startsWith("fac-") || objectIdRegex.test(value),
+        "Invalid facility ID format"
+      ),
     startAt: z
       .string({ message: "Start time is required" })
       .datetime({ message: "Start time must be a valid ISO 8601 string" }),

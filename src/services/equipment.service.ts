@@ -32,9 +32,13 @@ export interface UpdateEquipmentParams {
 export interface RequestEquipmentParams {
   userId: string;
   bookingId: string;
-  items: Array<{ equipmentId: string; quantity: number }>;
+  items?: Array<{ equipmentId: string; quantity: number }>;
   expectedReturnAt: string | Date;
   notes?: string;
+  requestType?: "CATALOG" | "CUSTOM";
+  requestedEquipmentName?: string;
+  requestedCategory?: EquipmentCategory;
+  quantity?: number;
 }
 
 export interface IssueEquipmentParams {
@@ -265,6 +269,10 @@ export async function requestEquipment({
   items,
   expectedReturnAt,
   notes,
+  requestType = "CATALOG",
+  requestedEquipmentName,
+  requestedCategory,
+  quantity,
 }: RequestEquipmentParams): Promise<IEquipmentCheckout> {
   await connectToDatabase();
 
@@ -276,23 +284,33 @@ export async function requestEquipment({
   if (!requestingUser || !requestingUser.isActive) {
     throw new Error("USER_INACTIVE");
   }
-  if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+  const isDemoBooking = bookingId.startsWith("demo-");
+  if (!isDemoBooking && !mongoose.Types.ObjectId.isValid(bookingId)) {
     throw new Error("INVALID_BOOKING_ID");
   }
-  if (!items || items.length === 0) {
+  if (requestType === "CATALOG" && (!items || items.length === 0)) {
     throw new Error("NO_ITEMS_REQUESTED");
+  }
+  if (requestType === "CUSTOM" && (!requestedEquipmentName || !requestedCategory)) {
+    throw new Error("CUSTOM_REQUEST_DETAILS_REQUIRED");
   }
 
   // 1. Verify booking
-  const booking = await Booking.findById(bookingId).lean<IBooking>();
-  if (!booking) {
-    throw new Error("BOOKING_NOT_FOUND");
-  }
-  if (booking.user.toString() !== userId.toString()) {
-    throw new Error("BOOKING_NOT_OWNED");
-  }
-  if (booking.status !== "CONFIRMED") {
-    throw new Error("BOOKING_NOT_CONFIRMED");
+  let booking: IBooking | null = null;
+  let demoBookingObjectId: mongoose.Types.ObjectId | null = null;
+  if (isDemoBooking) {
+    demoBookingObjectId = new mongoose.Types.ObjectId();
+  } else {
+    booking = await Booking.findById(bookingId).lean<IBooking>();
+    if (!booking) {
+      throw new Error("BOOKING_NOT_FOUND");
+    }
+    if (booking.user.toString() !== userId.toString()) {
+      throw new Error("BOOKING_NOT_OWNED");
+    }
+    if (booking.status !== "CONFIRMED") {
+      throw new Error("BOOKING_NOT_CONFIRMED");
+    }
   }
 
   const returnDate = new Date(expectedReturnAt);
@@ -304,7 +322,7 @@ export async function requestEquipment({
   if (returnDate <= now) {
     throw new Error("RETURN_TIME_IN_PAST");
   }
-  if (returnDate > booking.endAt) {
+  if (booking && returnDate > booking.endAt) {
     throw new Error("INVALID_RETURN_TIME");
   }
 
@@ -316,7 +334,7 @@ export async function requestEquipment({
     damagedQuantity: number;
   }> = [];
 
-  for (const it of items) {
+  for (const it of items || []) {
     if (!mongoose.Types.ObjectId.isValid(it.equipmentId)) {
       throw new Error("INVALID_EQUIPMENT_ID");
     }
@@ -344,10 +362,13 @@ export async function requestEquipment({
   // 3. Create equipment request (status = REQUESTED)
   const checkout = await EquipmentCheckout.create({
     user: new mongoose.Types.ObjectId(userId),
-    booking: new mongoose.Types.ObjectId(bookingId),
-    equipment: validatedItems[0].equipment,
-    quantity: validatedItems[0].quantity,
+    booking: demoBookingObjectId || new mongoose.Types.ObjectId(bookingId),
+    equipment: validatedItems[0]?.equipment || null,
+    quantity: requestType === "CUSTOM" ? Math.max(1, quantity || 1) : validatedItems[0]?.quantity,
     items: validatedItems,
+    requestType,
+    requestedEquipmentName: requestType === "CUSTOM" ? requestedEquipmentName : "",
+    requestedCategory: requestType === "CUSTOM" ? requestedCategory : "",
     issuedAt: null,
     expectedReturnAt: returnDate,
     returnedAt: null,
@@ -389,7 +410,7 @@ async function issueEquipmentInternal({
       throw new Error("CHECKOUT_NOT_FOUND");
     }
 
-    if (checkout.status !== "REQUESTED") {
+    if (checkout.status !== "REQUESTED" && checkout.status !== "APPROVED") {
       throw new Error("DUPLICATE_ISSUE");
     }
 
